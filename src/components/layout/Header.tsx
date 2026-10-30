@@ -6,6 +6,7 @@ import {
   Cpu,
   Search,
   CheckCircle,
+  Shield,
 } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
@@ -90,6 +91,16 @@ export const Header: React.FC<HeaderProps> = ({
           <CheckCircle className="h-3 w-3" />
           <span>Engine: Active</span>
         </div>
+
+        {/* Auth0 for AI Agents Identity Status */}
+        <a
+          href="/auth/login"
+          className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition cursor-pointer"
+          title="Auth0 Identity: Click to authenticate session via Auth0 Universal Login"
+        >
+          <Shield className="h-3 w-3 text-blue-400" />
+          <span>Auth0: Demo Mode</span>
+        </a>
       </div>
     </header>
   );
