@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GhostTrace 🔍👻
 
-## Getting Started
+> Evidence-backed forensic debugger and root cause analyzer for AI agents.
+> Built for DEV Challenge: **Hacktoberfest 2026 Week 4 — "Ghost in the Machine"**.
 
-First, run the development server:
+---
+
+## ⚡ What is GhostTrace?
+
+When multi-step AI agents fail—looping endlessly, hallucinating tool parameters, corrupting context, or crashing on edge cases—developers face massive token dumps without clear causal links.
+
+GhostTrace ingests execution traces, deterministically reconstructs an interactive waterfall timeline, leverages open-weight **Google Gemma 2** to hypothesize root causes, and strictly validates hypotheses against verified event IDs to eliminate hallucinated explanations.
+
+### Key Capabilities
+- **Deterministic Timeline Engine**: Reconstructs LLM calls, tool executions, and state mutations offline with zero hallucinations.
+- **Evidence-Grounded Root Cause Analysis**: Links failure hypotheses to exact event IDs and timestamp offsets.
+- **Reproducible Test Exporter**: Generates executable regression test cases directly from failure traces.
+- **Hacktoberfest 2026 Integrations**:
+  - Google Gemma 2 (Local Ollama / Backboard API)
+  - Mastra Agent Framework
+  - Sentry Agent Tracing & Spans
+  - MongoDB Atlas Trace History Store
+  - Render Production Hosting
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js >= 20.x
+- pnpm >= 9.x
+- (Optional) Local Ollama running `gemma2:9b` or Backboard API Key
+
+### Installation
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Clone the repository
+git clone https://github.com/diusazzad/ghosttrace.git
+cd ghosttrace
+
+# Install dependencies
+pnpm install
+
+# Setup environment variables
+cp .env.example .env.local
+
+# Run development server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🧪 Testing & Verification
 
-## Learn More
+```bash
+# Run unit & integration tests
+pnpm test
 
-To learn more about Next.js, take a look at the following resources:
+# Type checking
+pnpm typecheck
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Linting
+pnpm lint
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Production build
+pnpm build
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📄 License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT © 2026 [Sazzad Hossain](https://github.com/diusazzad)
