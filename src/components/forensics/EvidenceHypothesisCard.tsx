@@ -109,6 +109,16 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
             {hypothesis.suggestedFix}
           </p>
         </div>
+
+        {/* Sentry Agent Tracing Telemetry Info */}
+        <div className="pt-3 border-t border-gray-800/80 flex items-center justify-between text-[11px] font-mono text-gray-400">
+          <div className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+            <span className="text-gray-300">Sentry AI Span:</span>
+            <span className="text-purple-300">gen_ai.chat (Google Gemma 2)</span>
+          </div>
+          <span className="text-gray-500">otel: gen_ai.system=google_gemma</span>
+        </div>
       </div>
     </div>
   );

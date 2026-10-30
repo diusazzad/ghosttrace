@@ -1,4 +1,5 @@
 import { ReconstructedTimeline } from "@/types/schema";
+import { startGemmaInferenceSpan } from "@/lib/telemetry/sentryTracer";
 
 export interface GemmaHypothesis {
   title: string;
@@ -53,42 +54,61 @@ export class GemmaAdapter {
     const validEventIds = new Set(timeline.events.map((e) => e.id));
     const prompt = this.buildForensicPrompt(timeline);
 
-    // 1. Try Remote Backboard API if API key is configured
-    if (this.backboardApiKey && this.backboardApiKey !== "your_backboard_api_key_here") {
-      try {
-        const rawResponse = await this.callBackboard(prompt);
-        const parsed = this.parseModelJson(rawResponse);
-        if (parsed) {
-          return this.validateAndGroundHypothesis(
-            parsed,
-            validEventIds,
-            `Google Gemma 2 (Backboard: ${this.modelName})`,
-            timeline
-          );
+    const provider: "backboard" | "ollama" | "deterministic_fallback" =
+      this.backboardApiKey &&
+      this.backboardApiKey !== "your_backboard_api_key_here"
+        ? "backboard"
+        : "deterministic_fallback";
+
+    return startGemmaInferenceSpan(
+      this.modelName,
+      provider,
+      timeline.traceId,
+      async () => {
+        // 1. Try Remote Backboard API if API key is configured
+        if (
+          this.backboardApiKey &&
+          this.backboardApiKey !== "your_backboard_api_key_here"
+        ) {
+          try {
+            const rawResponse = await this.callBackboard(prompt);
+            const parsed = this.parseModelJson(rawResponse);
+            if (parsed) {
+              return this.validateAndGroundHypothesis(
+                parsed,
+                validEventIds,
+                `Google Gemma 2 (Backboard: ${this.modelName})`,
+                timeline
+              );
+            }
+          } catch (err) {
+            console.warn(
+              "Backboard API call failed, falling back to local Ollama / deterministic:",
+              err
+            );
+          }
         }
-      } catch (err) {
-        console.warn("Backboard API call failed, falling back to local Ollama / deterministic:", err);
-      }
-    }
 
-    // 2. Try Local Ollama if available
-    try {
-      const rawOllama = await this.callOllama(prompt);
-      const parsedOllama = this.parseModelJson(rawOllama);
-      if (parsedOllama) {
-        return this.validateAndGroundHypothesis(
-          parsedOllama,
-          validEventIds,
-          `Google Gemma 2 (Ollama Local)`,
-          timeline
-        );
-      }
-    } catch {
-      // Ollama not running locally; fallback cleanly to deterministic
-    }
+        // 2. Try Local Ollama if available
+        try {
+          const rawOllama = await this.callOllama(prompt);
+          const parsedOllama = this.parseModelJson(rawOllama);
+          if (parsedOllama) {
+            return this.validateAndGroundHypothesis(
+              parsedOllama,
+              validEventIds,
+              `Google Gemma 2 (Ollama Local)`,
+              timeline
+            );
+          }
+        } catch {
+          // Ollama not running locally; fallback cleanly to deterministic
+        }
 
-    // 3. Deterministic Fallback (Offline Mode)
-    return this.buildDeterministicFallback(timeline);
+        // 3. Deterministic Fallback (Offline Mode)
+        return this.buildDeterministicFallback(timeline);
+      }
+    );
   }
 
   /**

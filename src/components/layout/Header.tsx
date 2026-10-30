@@ -77,6 +77,15 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="h-4 w-px bg-gray-800" />
 
+        {/* Sentry Agent Tracing Live Status Indicator */}
+        <div
+          className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20"
+          title="Sentry Agent Tracing instrumenting OpenTelemetry gen_ai spans & breadcrumbs"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
+          <span>Sentry: Agent Tracing</span>
+        </div>
+
         <div className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
           <CheckCircle className="h-3 w-3" />
           <span>Engine: Active</span>
