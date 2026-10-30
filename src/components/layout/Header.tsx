@@ -10,6 +10,16 @@ import {
 } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
+export interface AuthStateDTO {
+  isConfigured: boolean;
+  isAuthenticated: boolean;
+  user: {
+    name?: string;
+    email?: string;
+    userId: string;
+  } | null;
+}
+
 interface HeaderProps {
   traces: TraceRun[];
   activeTrace: TraceRun;
@@ -17,6 +27,7 @@ interface HeaderProps {
   onUploadClick: () => void;
   onAnalyzeClick: () => void;
   isAnalyzing: boolean;
+  authState?: AuthStateDTO;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,6 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   onUploadClick,
   onAnalyzeClick,
   isAnalyzing,
+  authState,
 }) => {
   return (
     <header className="h-16 border-b border-gray-800/80 bg-[#0d1117]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-40">
@@ -92,15 +104,42 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Engine: Active</span>
         </div>
 
-        {/* Auth0 for AI Agents Identity Status */}
-        <a
-          href="/auth/login"
-          className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition cursor-pointer"
-          title="Auth0 Identity: Click to authenticate session via Auth0 Universal Login"
-        >
-          <Shield className="h-3 w-3 text-blue-400" />
-          <span>Auth0: Demo Mode</span>
-        </a>
+        {/* Auth0 for AI Agents Identity Status (Truthful Server-Derived) */}
+        {!authState?.isConfigured ? (
+          <div
+            className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-gray-800/60 text-gray-400 border border-gray-700/60 select-none"
+            title="Auth0 unconfigured: Running in local-first demo mode with synthetic fixtures."
+          >
+            <Shield className="h-3 w-3 text-gray-500" />
+            <span>Demo Mode · Sign-in unavailable</span>
+          </div>
+        ) : !authState?.isAuthenticated ? (
+          <a
+            href="/auth/login"
+            className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition cursor-pointer"
+            title="Sign in with Auth0 Universal Login"
+          >
+            <Shield className="h-3 w-3 text-blue-400" />
+            <span>Sign in</span>
+          </a>
+        ) : (
+          <div className="flex items-center gap-2">
+            <div
+              className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              title={`Server-verified session: ${authState.user?.userId}`}
+            >
+              <Shield className="h-3 w-3 text-emerald-400" />
+              <span>{authState.user?.name || authState.user?.email || "Authenticated user"}</span>
+            </div>
+            <a
+              href="/auth/logout"
+              className="text-[11px] font-mono text-gray-400 hover:text-gray-200 underline transition"
+              title="Sign out of Auth0 session"
+            >
+              Sign out
+            </a>
+          </div>
+        )}
       </div>
     </header>
   );

@@ -44,7 +44,7 @@ export async function GET() {
       },
       identity: {
         provider: "auth0",
-        status: isAuth0Configured() ? "connected" : "offline_demo_mode",
+        status: isAuth0Configured() ? "configured" : "not_configured",
       },
     },
   });
