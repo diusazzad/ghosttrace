@@ -1,137 +1,188 @@
-import { Ghost, ShieldAlert, Cpu, Activity, Play, Terminal, Database, CheckCircle2 } from "lucide-react";
+"use client";
+
+import React, { useState } from "react";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
+import { TraceSummaryCards } from "@/components/forensics/TraceSummaryCards";
+import { WaterfallTimeline } from "@/components/forensics/WaterfallTimeline";
+import { EvidenceHypothesisCard } from "@/components/forensics/EvidenceHypothesisCard";
+import { RegressionTestExporter } from "@/components/forensics/RegressionTestExporter";
+import { TraceUploadModal } from "@/components/forensics/TraceUploadModal";
+import { SAMPLE_TRACES } from "@/lib/sampleTraces";
+import { TraceRun } from "@/types/trace";
+import { Radio, Database, ShieldCheck, Terminal, Cpu } from "lucide-react";
 
 export default function Home() {
+  const [traces, setTraces] = useState<TraceRun[]>(SAMPLE_TRACES);
+  const [activeTrace, setActiveTrace] = useState<TraceRun>(SAMPLE_TRACES[0]);
+  const [currentTab, setCurrentTab] = useState<string>("trace");
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+
+  const handleSelectTrace = (trace: TraceRun) => {
+    setActiveTrace(trace);
+    setSelectedEventId(null);
+  };
+
+  const handleTraceLoaded = (newTrace: TraceRun) => {
+    setTraces((prev) => [newTrace, ...prev]);
+    setActiveTrace(newTrace);
+    setSelectedEventId(null);
+  };
+
+  const handleReAnalyze = () => {
+    setIsAnalyzing(true);
+    setTimeout(() => {
+      setIsAnalyzing(false);
+    }, 1200);
+  };
+
   return (
-    <div className="min-h-screen bg-[#0a0d13] text-gray-100 flex flex-col font-sans selection:bg-purple-600/30 selection:text-purple-200">
-      {/* Top Navigation */}
-      <header className="border-b border-gray-800/80 bg-[#0d1117]/80 backdrop-blur px-6 py-3.5 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-            <Ghost className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold tracking-tight text-lg text-white">GhostTrace</span>
-              <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                Forensics v0.1.0
-              </span>
-            </div>
-            <p className="text-xs text-gray-400">AI Agent Failure Investigator & Grounded Debugger</p>
-          </div>
-        </div>
+    <div className="flex min-h-screen bg-[#0a0d13] text-gray-100 font-sans antialiased selection:bg-purple-600/30 selection:text-purple-200">
+      {/* Left Sidebar */}
+      <Sidebar
+        currentTab={currentTab}
+        onTabChange={setCurrentTab}
+        sampleCount={traces.length}
+      />
 
-        <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Deterministic Engine Active</span>
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            <Cpu className="h-3.5 w-3.5" />
-            <span>Gemma 2 Ready</span>
-          </div>
-        </div>
-      </header>
+      {/* Main Forensic Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Sticky Header */}
+        <Header
+          traces={traces}
+          activeTrace={activeTrace}
+          onSelectTrace={handleSelectTrace}
+          onUploadClick={() => setIsUploadModalOpen(true)}
+          onAnalyzeClick={handleReAnalyze}
+          isAnalyzing={isAnalyzing}
+        />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-8 flex flex-col gap-8">
-        {/* Hero Section */}
-        <section className="rounded-xl border border-gray-800 bg-[#0d1117] p-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 max-w-3xl">
-            <div className="inline-flex items-center gap-2 text-xs font-mono text-purple-400 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 mb-4">
-              <Terminal className="h-3.5 w-3.5" />
-              <span>Hacktoberfest 2026 — Ghost in the Machine</span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-3">
-              Unmask the Ghost Behind AI Agent Failures
-            </h1>
-            <p className="text-gray-300 text-sm sm:text-base leading-relaxed mb-6">
-              When autonomous multi-step agents hallucinate tool arguments, loop infinitely, or crash unexpectedly,
-              GhostTrace deterministically reconstructs execution timelines, hypothesizes root causes using Google Gemma 2,
-              and rigorously validates every finding against verifiable event IDs.
-            </p>
+        {/* Dynamic Body Content by Tab */}
+        <main className="flex-1 p-6 flex flex-col gap-6 max-w-7xl w-full mx-auto">
+          {/* Main Trace View */}
+          {(currentTab === "trace" || currentTab === "timeline") && (
+            <>
+              {/* Stat Metric Cards */}
+              <TraceSummaryCards trace={activeTrace} />
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-medium text-sm transition shadow-lg shadow-purple-600/25">
-                <Play className="h-4 w-4" />
-                <span>Load Sample Failure Trace</span>
-              </button>
-              <a
-                href="/api/health"
-                target="_blank"
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-gray-800/80 hover:bg-gray-800 text-gray-200 text-sm border border-gray-700 transition"
-              >
-                <Activity className="h-4 w-4 text-emerald-400" />
-                <span>Health Endpoint</span>
-              </a>
-            </div>
-          </div>
-        </section>
+              {/* Core 2-Column or Stacked Inspection Workspace */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                {/* Left 7 Cols: Waterfall Timeline */}
+                <div className="lg:col-span-7 flex flex-col gap-6">
+                  <WaterfallTimeline
+                    trace={activeTrace}
+                    selectedEventId={selectedEventId}
+                    onSelectEvent={setSelectedEventId}
+                  />
+                </div>
 
-        {/* Feature Cards Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="p-5 rounded-xl border border-gray-800 bg-[#0d1117] flex flex-col gap-3">
-            <div className="h-9 w-9 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-              <Activity className="h-5 w-5" />
-            </div>
-            <h3 className="font-semibold text-white">Waterfall Timeline Engine</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Deterministic parsing of tool calls, prompt tokens, state mutations, and error spans without token hallucinations.
-            </p>
-          </div>
+                {/* Right 5 Cols: Gemma 2 Hypothesis & Test Generator */}
+                <div className="lg:col-span-5 flex flex-col gap-6 sticky top-20">
+                  <EvidenceHypothesisCard
+                    trace={activeTrace}
+                    selectedEventId={selectedEventId}
+                    onSelectEvent={setSelectedEventId}
+                  />
 
-          <div className="p-5 rounded-xl border border-gray-800 bg-[#0d1117] flex flex-col gap-3">
-            <div className="h-9 w-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
-            <h3 className="font-semibold text-white">Grounded Root Cause Hypotheses</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Powered by Google Gemma 2. Strict validation ensures every hypothesis cites exact, non-hallucinated trace event IDs.
-            </p>
-          </div>
+                  <RegressionTestExporter trace={activeTrace} />
+                </div>
+              </div>
+            </>
+          )}
 
-          <div className="p-5 rounded-xl border border-gray-800 bg-[#0d1117] flex flex-col gap-3">
-            <div className="h-9 w-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Database className="h-5 w-5" />
-            </div>
-            <h3 className="font-semibold text-white">Regression Test Exporter</h3>
-            <p className="text-xs text-gray-400 leading-relaxed">
-              Instantly converts identified failure sequences into reproducible Vitest / Jest test suites to prevent regressions.
-            </p>
-          </div>
-        </section>
+          {/* Dedicated Hypotheses Tab */}
+          {currentTab === "hypotheses" && (
+            <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
+              <div className="p-6 rounded-xl border border-gray-800 bg-[#0d1117]">
+                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                  <Cpu className="h-5 w-5 text-blue-400" />
+                  <span>Google Gemma 2 Root Cause Forensics</span>
+                </h2>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  GhostTrace pairs open-weight Gemma 2 with strict deterministic grounding. Every failure explanation
+                  must link directly to verified trace event IDs and timestamps to prevent reasoning hallucinations.
+                </p>
+              </div>
 
-        {/* Integration Status Table */}
-        <section className="rounded-xl border border-gray-800 bg-[#0d1117] p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-purple-400" />
-            <span>Hacktoberfest 2026 Partner Architecture</span>
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-            <div className="p-3 rounded-lg bg-black/40 border border-gray-800/80">
-              <span className="text-gray-500 block mb-1">AI Reasoning</span>
-              <span className="text-white font-medium">Google Gemma 2</span>
-            </div>
-            <div className="p-3 rounded-lg bg-black/40 border border-gray-800/80">
-              <span className="text-gray-500 block mb-1">Workflow Engine</span>
-              <span className="text-white font-medium">Mastra Core</span>
-            </div>
-            <div className="p-3 rounded-lg bg-black/40 border border-gray-800/80">
-              <span className="text-gray-500 block mb-1">Observability</span>
-              <span className="text-white font-medium">Sentry Agent Spans</span>
-            </div>
-            <div className="p-3 rounded-lg bg-black/40 border border-gray-800/80">
-              <span className="text-gray-500 block mb-1">Deployment</span>
-              <span className="text-white font-medium">Render Production</span>
-            </div>
-          </div>
-        </section>
-      </main>
+              <EvidenceHypothesisCard
+                trace={activeTrace}
+                selectedEventId={selectedEventId}
+                onSelectEvent={setSelectedEventId}
+              />
 
-      {/* Footer */}
-      <footer className="border-t border-gray-800/80 bg-[#0d1117] px-6 py-4 text-center text-xs text-gray-500">
-        GhostTrace &bull; Open Source AI Forensic Debugger &bull; Hacktoberfest 2026
-      </footer>
+              <div className="p-4 rounded-xl border border-gray-800 bg-[#0d1117] flex items-center justify-between text-xs text-gray-400">
+                <span>Model provider: Google Gemma 2 (9B / 27B) via Backboard / Local Ollama</span>
+                <span className="font-mono text-emerald-400">Status: Verified Grounded</span>
+              </div>
+            </div>
+          )}
+
+          {/* Dedicated Regression Test Tab */}
+          {currentTab === "regression" && (
+            <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
+              <div className="p-6 rounded-xl border border-gray-800 bg-[#0d1117]">
+                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                  <Terminal className="h-5 w-5 text-emerald-400" />
+                  <span>Automated Regression Test Suite</span>
+                </h2>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  Export reproducible test cases synthesized from real failure traces to guarantee that your agent fixes
+                  persist across model updates and prompt refactoring.
+                </p>
+              </div>
+
+              <RegressionTestExporter trace={activeTrace} />
+            </div>
+          )}
+
+          {/* Sentry Agent Ingestion Tab */}
+          {currentTab === "live" && (
+            <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full">
+              <div className="p-6 rounded-xl border border-gray-800 bg-[#0d1117]">
+                <div className="flex items-center gap-2 mb-2">
+                  <Radio className="h-5 w-5 text-purple-400 animate-pulse" />
+                  <h2 className="text-xl font-bold text-white">Live Agent Ingestion &amp; Sentry Spans</h2>
+                </div>
+                <p className="text-sm text-gray-400 leading-relaxed">
+                  Stream agent telemetry directly from your Python or TypeScript agents using Sentry OpenTelemetry spans,
+                  Mastra workflows, or HTTP webhooks into GhostTrace for real-time root-cause analysis.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-5 rounded-xl border border-gray-800 bg-[#0d1117]">
+                  <div className="flex items-center gap-2 font-semibold text-white mb-2">
+                    <Database className="h-4 w-4 text-blue-400" />
+                    <span>MongoDB Atlas Storage</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Persistent archival of multi-turn traces, LLM cost trends, and regression test histories.
+                  </p>
+                </div>
+
+                <div className="p-5 rounded-xl border border-gray-800 bg-[#0d1117]">
+                  <div className="flex items-center gap-2 font-semibold text-white mb-2">
+                    <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                    <span>Deterministic Circuit Breakers</span>
+                  </div>
+                  <p className="text-xs text-gray-400 leading-relaxed">
+                    Instantly catches repetitive tool loops and stops run-away token billing before reaching external APIs.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* Upload Modal */}
+      <TraceUploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onTraceLoaded={handleTraceLoaded}
+      />
     </div>
   );
 }
