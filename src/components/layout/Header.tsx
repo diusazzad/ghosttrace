@@ -29,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="h-16 border-b border-gray-800/80 bg-[#0d1117]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-40">
       {/* Left: Active Run Selector & Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-2xl">
+      <div className="flex items-center gap-4 flex-1 max-w-xl">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
           <input
@@ -46,19 +46,13 @@ export const Header: React.FC<HeaderProps> = ({
             const selected = traces.find((t) => t.id === e.target.value);
             if (selected) onSelectTrace(selected);
           }}
-          className="bg-[#161b22] border border-gray-800 text-gray-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-purple-500 max-w-xs truncate"
+          className="bg-[#161b22] border border-gray-800 text-gray-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-purple-500"
         >
-          {traces.map((trace) => {
-            const tag =
-              trace.status === "completed"
-                ? "HEALTHY"
-                : trace.failureCategory.toUpperCase().replace("_", " ");
-            return (
-              <option key={trace.id} value={trace.id}>
-                [{tag}] {trace.agentName}
-              </option>
-            );
-          })}
+          {traces.map((trace) => (
+            <option key={trace.id} value={trace.id}>
+              {trace.agentName} ({trace.id})
+            </option>
+          ))}
         </select>
       </div>
 

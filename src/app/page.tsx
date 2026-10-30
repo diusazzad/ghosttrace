@@ -31,11 +31,34 @@ export default function Home() {
     setSelectedEventId(null);
   };
 
-  const handleReAnalyze = () => {
-    setIsAnalyzing(true);
-    setTimeout(() => {
+  const handleReAnalyze = async () => {
+    try {
+      setIsAnalyzing(true);
+      const res = await fetch("/api/traces/hypothesize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trace: activeTrace }),
+      });
+
+      if (!res.ok) throw new Error("Failed to re-analyze trace");
+
+      const data = await res.json();
+      if (data.success && data.hypothesis) {
+        const updatedTrace: TraceRun = {
+          ...activeTrace,
+          hypothesis: data.hypothesis,
+          generatedTestCode: data.testCode || activeTrace.generatedTestCode,
+        };
+        setActiveTrace(updatedTrace);
+        setTraces((prev) =>
+          prev.map((t) => (t.id === updatedTrace.id ? updatedTrace : t))
+        );
+      }
+    } catch (err) {
+      console.error("Re-analyze error:", err);
+    } finally {
       setIsAnalyzing(false);
-    }, 1200);
+    }
   };
 
   return (
