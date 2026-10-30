@@ -8,6 +8,7 @@ import { WaterfallTimeline } from "@/components/forensics/WaterfallTimeline";
 import { EvidenceHypothesisCard } from "@/components/forensics/EvidenceHypothesisCard";
 import { RegressionTestExporter } from "@/components/forensics/RegressionTestExporter";
 import { TraceUploadModal } from "@/components/forensics/TraceUploadModal";
+import { IncidentHistoryView } from "@/components/forensics/IncidentHistoryView";
 import { SAMPLE_TRACES } from "@/lib/sampleTraces";
 import { TraceRun } from "@/types/trace";
 import { Radio, Database, ShieldCheck, Terminal, Cpu } from "lucide-react";
@@ -53,6 +54,25 @@ export default function Home() {
         setTraces((prev) =>
           prev.map((t) => (t.id === updatedTrace.id ? updatedTrace : t))
         );
+
+        // Persist to MongoDB Atlas
+        fetch("/api/traces/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            traceId: updatedTrace.id,
+            agentName: updatedTrace.agentName,
+            status: updatedTrace.status,
+            primaryFailureCategory: updatedTrace.failureCategory,
+            totalDurationMs: updatedTrace.totalDurationMs,
+            totalTokens: updatedTrace.totalTokens,
+            estimatedCostUsd: updatedTrace.estimatedCostUsd,
+            eventsCount: updatedTrace.events.length,
+            anomaliesCount: updatedTrace.events.filter((e) => e.isCausalAnomaly).length,
+            hypothesis: updatedTrace.hypothesis,
+            generatedTestCode: updatedTrace.generatedTestCode,
+          }),
+        }).catch((err) => console.warn("Failed to persist to MongoDB Atlas:", err));
       }
     } catch (err) {
       console.error("Re-analyze error:", err);
@@ -158,6 +178,19 @@ export default function Home() {
 
               <RegressionTestExporter trace={activeTrace} />
             </div>
+          )}
+
+                    {/* Dedicated MongoDB Atlas History Tab */}
+          {currentTab === "history" && (
+            <IncidentHistoryView
+              onSelectHistoricalTrace={(traceId) => {
+                const found = traces.find((t) => t.id === traceId);
+                if (found) {
+                  setActiveTrace(found);
+                  setCurrentTab("trace");
+                }
+              }}
+            />
           )}
 
           {/* Sentry Agent Ingestion Tab */}

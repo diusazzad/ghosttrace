@@ -10,6 +10,7 @@ import {
   Radio,
   Cpu,
   CheckCircle2,
+  Database,
   ExternalLink,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: "timeline", label: "Waterfall Timeline", icon: Layers },
     { id: "hypotheses", label: "Evidence Root Cause", icon: ShieldAlert },
     { id: "regression", label: "Test Exporter", icon: FileCode2 },
+    { id: "history", label: "Atlas Incident History", icon: Database, badge: "MongoDB" },
     { id: "live", label: "Agent Ingestion", icon: Radio, badge: "Sentry" },
   ];
 
@@ -91,7 +93,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* System Status Footer */}
-      <div className="p-4 border-t border-gray-800/80 bg-black/20 text-xs flex flex-col gap-3">
+      <div className="p-4 border-t border-gray-800/80 bg-black/20 text-xs flex flex-col gap-2.5">
         <div className="text-[10px] uppercase font-semibold text-gray-500 tracking-wider">
           Runtime Verification
         </div>
@@ -107,9 +109,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="flex items-center justify-between text-gray-300 text-[11px]">
           <span className="flex items-center gap-1.5">
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-            <span>Deterministic Grounding</span>
+            <span>Grounding Defense</span>
           </span>
           <span className="text-[10px] font-mono text-emerald-400">ENFORCED</span>
+        </div>
+
+        <div className="flex items-center justify-between text-gray-300 text-[11px]">
+          <span className="flex items-center gap-1.5">
+            <Database className="h-3.5 w-3.5 text-emerald-400" />
+            <span>MongoDB Atlas</span>
+          </span>
+          <span className="text-[10px] font-mono text-emerald-400">PERSISTENT</span>
         </div>
 
         <a
