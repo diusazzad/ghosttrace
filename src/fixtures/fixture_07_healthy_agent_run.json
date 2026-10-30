@@ -1,0 +1,56 @@
+{
+  "id": "trace-healthy-007",
+  "agentName": "CustomerAssistantAgent",
+  "startedAt": "2026-10-30T11:10:00.000Z",
+  "endedAt": "2026-10-30T11:10:03.000Z",
+  "events": [
+    {
+      "id": "evt_601",
+      "name": "parse_user_query",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 25,
+      "status": "success",
+      "input": { "text": "What are your support hours?" }
+    },
+    {
+      "id": "evt_602",
+      "name": "llm_formulate_search",
+      "type": "llm",
+      "startTimeMs": 30,
+      "durationMs": 720,
+      "status": "success",
+      "tokens": { "prompt": 280, "completion": 45, "total": 325 },
+      "output": { "tool": "knowledge_base_search", "args": { "query": "support hours" } }
+    },
+    {
+      "id": "evt_603",
+      "name": "knowledge_base_search",
+      "type": "tool",
+      "startTimeMs": 760,
+      "durationMs": 150,
+      "status": "success",
+      "input": { "query": "support hours" },
+      "output": { "results": ["Support operates 24/7 via live chat and email."] }
+    },
+    {
+      "id": "evt_604",
+      "name": "llm_compose_response",
+      "type": "llm",
+      "startTimeMs": 920,
+      "durationMs": 850,
+      "status": "success",
+      "tokens": { "prompt": 380, "completion": 60, "total": 440 },
+      "output": { "answer": "Our support team is available 24/7 to assist you." }
+    },
+    {
+      "id": "evt_605",
+      "name": "dispatch_reply",
+      "type": "state",
+      "startTimeMs": 1780,
+      "durationMs": 30,
+      "status": "success",
+      "output": { "delivered": true }
+    }
+  ]
+}

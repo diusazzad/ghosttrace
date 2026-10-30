@@ -1,0 +1,66 @@
+{
+  "id": "trace-loop-001",
+  "agentName": "SupportRefundAgent",
+  "startedAt": "2026-10-30T10:00:00.000Z",
+  "endedAt": "2026-10-30T10:00:15.000Z",
+  "events": [
+    {
+      "id": "evt_001",
+      "name": "agent_start",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 50,
+      "status": "success",
+      "input": { "query": "Refund order ORD-123" }
+    },
+    {
+      "id": "evt_002",
+      "name": "llm_generate_plan",
+      "type": "llm",
+      "startTimeMs": 60,
+      "durationMs": 850,
+      "status": "success",
+      "tokens": { "prompt": 350, "completion": 70, "total": 420 },
+      "output": { "tool": "fetch_order", "args": { "orderId": "ORD-123" } }
+    },
+    {
+      "id": "evt_003",
+      "name": "tool_fetch_order",
+      "type": "tool",
+      "startTimeMs": 950,
+      "durationMs": 300,
+      "status": "warning",
+      "input": { "orderId": "ORD-123" },
+      "output": { "status": 404, "error": "Order not found" }
+    },
+    {
+      "id": "evt_004",
+      "name": "tool_fetch_order",
+      "type": "tool",
+      "startTimeMs": 1300,
+      "durationMs": 310,
+      "status": "warning",
+      "input": { "orderId": "ORD-123" },
+      "output": { "status": 404, "error": "Order not found" }
+    },
+    {
+      "id": "evt_005",
+      "name": "tool_fetch_order",
+      "type": "tool",
+      "startTimeMs": 1650,
+      "durationMs": 290,
+      "status": "warning",
+      "input": { "orderId": "ORD-123" },
+      "output": { "status": 404, "error": "Order not found" }
+    },
+    {
+      "id": "evt_006",
+      "name": "circuit_breaker_trip",
+      "type": "error",
+      "startTimeMs": 2000,
+      "durationMs": 10,
+      "status": "error",
+      "error": "CircuitBreakerError: Identical tool 'tool_fetch_order' invoked 3 times without state progress"
+    }
+  ]
+}

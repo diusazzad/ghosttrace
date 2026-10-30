@@ -1,0 +1,35 @@
+{
+  "id": "trace-tool-crash-004",
+  "agentName": "PaymentWebhookAgent",
+  "startedAt": "2026-10-30T10:40:00.000Z",
+  "endedAt": "2026-10-30T10:40:03.000Z",
+  "events": [
+    {
+      "id": "evt_301",
+      "name": "receive_webhook_payload",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 15,
+      "status": "success",
+      "input": { "chargeId": "ch_98242" }
+    },
+    {
+      "id": "evt_302",
+      "name": "call_stripe_settlement",
+      "type": "tool",
+      "startTimeMs": 20,
+      "durationMs": 750,
+      "status": "error",
+      "error": "UpstreamAPIError: HTTP 500 Internal Server Error from Payment Gateway (Connection reset by peer)"
+    },
+    {
+      "id": "evt_303",
+      "name": "unhandled_process_exit",
+      "type": "error",
+      "startTimeMs": 780,
+      "durationMs": 5,
+      "status": "error",
+      "error": "FatalCrash: Process terminated due to unhandled promise rejection in call_stripe_settlement"
+    }
+  ]
+}

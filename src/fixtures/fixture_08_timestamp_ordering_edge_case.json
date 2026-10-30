@@ -1,0 +1,36 @@
+{
+  "id": "trace-out-of-order-008",
+  "agentName": "DistributedWorkerAgent",
+  "startedAt": "2026-10-30T11:20:00.000Z",
+  "endedAt": "2026-10-30T11:20:05.000Z",
+  "events": [
+    {
+      "id": "evt_703",
+      "name": "worker_finish_sync",
+      "type": "state",
+      "timestamp": "2026-10-30T11:20:04.500Z",
+      "durationMs": 50,
+      "status": "success",
+      "output": { "synced": true }
+    },
+    {
+      "id": "evt_701",
+      "name": "worker_start",
+      "type": "state",
+      "timestamp": "2026-10-30T11:20:00.100Z",
+      "durationMs": 40,
+      "status": "success",
+      "input": { "taskId": "t-84" }
+    },
+    {
+      "id": "evt_702",
+      "name": "llm_task_computation",
+      "type": "llm",
+      "timestamp": "2026-10-30T11:20:01.000Z",
+      "durationMs": 2200,
+      "status": "success",
+      "tokens": { "prompt": 450, "completion": 90, "total": 540 },
+      "output": { "computed": 42 }
+    }
+  ]
+}

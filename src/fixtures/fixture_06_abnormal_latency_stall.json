@@ -1,0 +1,35 @@
+{
+  "id": "trace-latency-stall-006",
+  "agentName": "WebScraperAgent",
+  "startedAt": "2026-10-30T11:00:00.000Z",
+  "endedAt": "2026-10-30T11:00:32.000Z",
+  "events": [
+    {
+      "id": "evt_501",
+      "name": "init_crawler",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 40,
+      "status": "success",
+      "input": { "targetUrl": "https://slow-responsive-site.internal" }
+    },
+    {
+      "id": "evt_502",
+      "name": "http_fetch_html",
+      "type": "tool",
+      "startTimeMs": 50,
+      "durationMs": 28500,
+      "status": "warning",
+      "output": { "statusCode": 200, "warning": "Socket hung for 28.5 seconds before response" }
+    },
+    {
+      "id": "evt_503",
+      "name": "parse_dom_tree",
+      "type": "tool",
+      "startTimeMs": 28600,
+      "durationMs": 120,
+      "status": "success",
+      "output": { "nodes": 140 }
+    }
+  ]
+}

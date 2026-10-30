@@ -1,0 +1,43 @@
+{
+  "id": "trace-param-halluc-002",
+  "agentName": "CodeRefactorAgent",
+  "startedAt": "2026-10-30T10:15:00.000Z",
+  "endedAt": "2026-10-30T10:15:05.000Z",
+  "events": [
+    {
+      "id": "evt_101",
+      "name": "parse_prompt",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 40,
+      "status": "success",
+      "input": { "task": "Migrate schema to pydantic v2" }
+    },
+    {
+      "id": "evt_102",
+      "name": "llm_call_tool_gen",
+      "type": "llm",
+      "startTimeMs": 50,
+      "durationMs": 1400,
+      "status": "success",
+      "tokens": { "prompt": 1200, "completion": 250, "total": 1450 },
+      "output": {
+        "tool": "ast_patch",
+        "arguments": {
+          "filePath": "src/user.py",
+          "enforce_pydantic_v2": true,
+          "patchMode": "strict"
+        }
+      }
+    },
+    {
+      "id": "evt_103",
+      "name": "ast_patch",
+      "type": "error",
+      "startTimeMs": 1500,
+      "durationMs": 80,
+      "status": "error",
+      "error": "ValidationError: Extra inputs are not permitted for tool 'ast_patch': 'enforce_pydantic_v2'"
+    }
+  ]
+}

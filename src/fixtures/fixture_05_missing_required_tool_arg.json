@@ -1,0 +1,42 @@
+{
+  "id": "trace-missing-arg-005",
+  "agentName": "EmailDispatcherAgent",
+  "startedAt": "2026-10-30T10:50:00.000Z",
+  "endedAt": "2026-10-30T10:50:04.000Z",
+  "events": [
+    {
+      "id": "evt_401",
+      "name": "parse_notification",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 20,
+      "status": "success",
+      "input": { "type": "invoice_overdue" }
+    },
+    {
+      "id": "evt_402",
+      "name": "llm_compose_email",
+      "type": "llm",
+      "startTimeMs": 30,
+      "durationMs": 1100,
+      "status": "success",
+      "tokens": { "prompt": 600, "completion": 140, "total": 740 },
+      "output": {
+        "tool": "send_smtp_email",
+        "arguments": {
+          "subject": "Urgent Invoice #492",
+          "body": "Dear customer, your invoice is overdue."
+        }
+      }
+    },
+    {
+      "id": "evt_403",
+      "name": "send_smtp_email",
+      "type": "error",
+      "startTimeMs": 1150,
+      "durationMs": 60,
+      "status": "error",
+      "error": "ValidationError: Missing required parameter 'recipient_email' in tool declaration"
+    }
+  ]
+}

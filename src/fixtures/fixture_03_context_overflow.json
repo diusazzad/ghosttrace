@@ -1,0 +1,27 @@
+{
+  "id": "trace-context-overflow-003",
+  "agentName": "DocumentSummarizerAgent",
+  "startedAt": "2026-10-30T10:30:00.000Z",
+  "endedAt": "2026-10-30T10:30:08.000Z",
+  "events": [
+    {
+      "id": "evt_201",
+      "name": "load_large_pdf",
+      "type": "tool",
+      "startTimeMs": 0,
+      "durationMs": 1200,
+      "status": "success",
+      "output": { "bytesRead": 8420000, "pages": 120 }
+    },
+    {
+      "id": "evt_202",
+      "name": "llm_generate_summary",
+      "type": "error",
+      "startTimeMs": 1300,
+      "durationMs": 450,
+      "status": "error",
+      "tokens": { "prompt": 38400, "completion": 0, "total": 38400 },
+      "error": "RateLimitOrTokenError: Maximum context length exceeded: requested 38400 tokens, limit is 8192 tokens."
+    }
+  ]
+}
