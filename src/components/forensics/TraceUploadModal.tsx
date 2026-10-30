@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { X, Upload, FileText, AlertCircle } from "lucide-react";
 import { TraceRun } from "@/types/trace";
+import { reconstructTimeline } from "@/lib/detector";
+import { timelineToTraceRun } from "@/lib/sampleTraces";
 
 interface TraceUploadModalProps {
   isOpen: boolean;
@@ -24,13 +26,12 @@ export const TraceUploadModal: React.FC<TraceUploadModalProps> = ({
     try {
       setError(null);
       const parsed = JSON.parse(jsonText);
-      if (!parsed.id || !parsed.events || !Array.isArray(parsed.events)) {
-        throw new Error("Trace format missing required fields ('id', 'events' array).");
-      }
-      onTraceLoaded(parsed as TraceRun);
+      const timeline = reconstructTimeline(parsed);
+      const traceRun = timelineToTraceRun(timeline);
+      onTraceLoaded(traceRun);
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Invalid JSON";
+      const msg = err instanceof Error ? err.message : "Invalid trace JSON";
       setError(msg);
     }
   };
