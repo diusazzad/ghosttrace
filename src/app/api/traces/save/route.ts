@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveInvestigation, StoredInvestigation } from "@/lib/db/traceRepository";
+import { saveInvestigation, StoredInvestigation, DEFAULT_ANONYMOUS_OWNER } from "@/lib/db/traceRepository";
+import { getServerSession } from "@/lib/auth/auth0";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(req);
+    // Bind investigation to verified Auth0 session user (session.userId) or fallback to sandbox
+    const ownerId = session?.userId || DEFAULT_ANONYMOUS_OWNER;
+
     const body = await req.json();
 
     if (!body.traceId || !body.agentName) {
@@ -13,6 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     const investigation: StoredInvestigation = {
+      ownerId,
       traceId: body.traceId,
       agentName: body.agentName,
       status: body.status || "failed",
