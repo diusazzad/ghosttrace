@@ -190,9 +190,7 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
               <span className="font-semibold text-cyan-300">
                 Privacy Safeguard:
               </span>{" "}
-              Payload scrubbed of authorization headers, JWTs, and bearer tokens
-              prior to transmission via OpenAI-compatible SDK to Paper
-              Instruments (<code>https://api.paperinstruments.com/v1</code>).
+              Payload scrubbed of authorization headers, API keys, cookies, client secrets, and JWTs prior to transmission via OpenAI-compatible SDK to Paper Instruments (<code>https://api.paperinstruments.com/v1</code>).
             </div>
           </div>
         )}
@@ -210,16 +208,22 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
           </h4>
         </div>
 
-        {/* Actual Token Usage & Inference Cost Card (for Ultramarine / Live Models) */}
-        {currentDisplay.cost && currentDisplay.cost.costUsd !== undefined && (
+        {/* GT-UM-04: Actual Token Usage & Inference Cost Card */}
+        {currentDisplay.cost && (
           <div className="p-3 rounded-lg bg-[#161b22] border border-gray-800 text-xs flex flex-col gap-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5 text-gray-300 font-medium">
                 <Coins className="h-3.5 w-3.5 text-amber-400" />
                 <span>Actual Inference Cost:</span>
-                <span className="font-mono font-bold text-emerald-400">
-                  ${currentDisplay.cost.costUsd.toFixed(6)}
-                </span>
+                {currentDisplay.cost.costUsd !== null && currentDisplay.cost.costUsd !== undefined ? (
+                  <span className="font-mono font-bold text-emerald-400">
+                    ${currentDisplay.cost.costUsd.toFixed(6)}
+                  </span>
+                ) : (
+                  <span className="font-mono font-bold text-amber-400">
+                    Unknown
+                  </span>
+                )}
               </div>
               <span className="text-[10px] text-gray-400 font-mono">
                 Official Paper Instruments Rates
@@ -230,19 +234,25 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
               <div>
                 <span className="text-gray-500 block">Uncached In ($0.15/M):</span>
                 <span className="text-gray-300">
-                  {currentDisplay.cost.uncachedInputTokens ?? 0} tok
+                  {currentDisplay.cost.uncachedInputTokens !== null && currentDisplay.cost.uncachedInputTokens !== undefined
+                    ? `${currentDisplay.cost.uncachedInputTokens} tok`
+                    : "Unknown"}
                 </span>
               </div>
               <div>
                 <span className="text-gray-500 block">Cached In ($0.03/M):</span>
                 <span className="text-gray-300">
-                  {currentDisplay.cost.cachedInputTokens ?? 0} tok
+                  {currentDisplay.cost.cachedInputTokens !== null && currentDisplay.cost.cachedInputTokens !== undefined
+                    ? `${currentDisplay.cost.cachedInputTokens} tok`
+                    : "Unknown"}
                 </span>
               </div>
               <div>
                 <span className="text-gray-500 block">Completion ($0.50/M):</span>
                 <span className="text-gray-300">
-                  {currentDisplay.cost.completionTokens ?? 0} tok
+                  {currentDisplay.cost.completionTokens !== null && currentDisplay.cost.completionTokens !== undefined
+                    ? `${currentDisplay.cost.completionTokens} tok`
+                    : "Unknown"}
                 </span>
               </div>
             </div>
@@ -260,7 +270,7 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
           {currentDisplay.explanation}
         </div>
 
-        {/* Evidence Verification Status */}
+        {/* GT-UM-03: Evidence Verification & Causal Status Separation */}
         {validationInfo && (
           <div className="p-3 rounded-lg bg-[#161b22] border border-gray-800 flex flex-col gap-2 text-xs">
             <div className="flex items-center justify-between">
@@ -268,7 +278,7 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
                 <FileCheck2 className="h-3.5 w-3.5 text-blue-400" />
                 <span>Telemetry Evidence Grounding:</span>
               </span>
-              <div className="flex items-center gap-1 font-mono text-[10px]">
+              <div className="flex items-center gap-2 font-mono text-[10px]">
                 <span
                   className={
                     validationInfo.eventReferenceValid
@@ -280,11 +290,23 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
                     ? "✓ event_refs_valid"
                     : "✗ invalid_event_refs"}
                 </span>
+                <span className="text-gray-600">|</span>
+                <span
+                  className={
+                    validationInfo.causalClaimUnverified
+                      ? "text-amber-400 font-semibold"
+                      : "text-emerald-400 font-semibold"
+                  }
+                >
+                  {validationInfo.causalClaimUnverified
+                    ? "⚠ causal_claim_unverified"
+                    : "✓ causal_claim_verified"}
+                </span>
               </div>
             </div>
 
             {validationInfo.warningMessage && (
-              <p className="text-[10px] text-red-300 bg-red-950/20 p-2 rounded border border-red-500/20">
+              <p className="text-[10px] text-amber-300 bg-amber-950/20 p-2 rounded border border-amber-500/20">
                 ⚠ {validationInfo.warningMessage}
               </p>
             )}

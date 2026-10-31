@@ -21,12 +21,13 @@ export type UltramarineInvestigationOutput = z.infer<
 >;
 
 export interface UltramarineCost {
-  uncachedInputTokens: number;
-  cachedInputTokens: number;
-  completionTokens: number;
-  totalTokens: number;
-  costUsd: number;
-  isEstimated: false;
+  uncachedInputTokens: number | null;
+  cachedInputTokens: number | null;
+  completionTokens: number | null;
+  totalTokens: number | null;
+  costUsd: number | null;
+  isEstimated: boolean;
+  isKnown: boolean;
   formula: string;
 }
 
@@ -37,6 +38,7 @@ export interface UltramarineEvidenceValidation {
   causalClaimUnverified: boolean;
   humanReviewRequired: boolean;
   warningMessage?: string;
+  causalStatus: "unverified_llm_hypothesis" | "unsupported_event_refs";
 }
 
 export interface UltramarineInvestigationResult {
@@ -49,11 +51,11 @@ export interface UltramarineInvestigationResult {
   investigation: UltramarineInvestigationOutput;
   evidenceValidation: UltramarineEvidenceValidation;
   tokenUsage: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-    cachedPromptTokens?: number;
-  };
+    promptTokens: number | null;
+    completionTokens: number | null;
+    totalTokens: number | null;
+    cachedPromptTokens: number | null;
+  } | null;
   cost: UltramarineCost;
   rawTraceId: string;
   sanitizedEventCount: number;
@@ -62,24 +64,31 @@ export interface UltramarineInvestigationResult {
 export interface UltramarineAdapterOptions {
   apiKey?: string;
   baseURL?: string;
-  modelName?: string;
+  model?: string;
   client?: OpenAI;
 }
 
 export class UltramarineError extends Error {
-  code: string;
-  statusCode?: number;
-  requestId?: string;
-  isRetryable: boolean;
+  readonly code:
+    | "API_KEY_MISSING"
+    | "AUTHENTICATION_FAILED"
+    | "RATE_LIMIT_OR_QUOTA_EXCEEDED"
+    | "UPSTREAM_REQUEST_FAILED"
+    | "SCHEMA_VALIDATION_FAILED"
+    | "MALFORMED_JSON"
+    | "EMPTY_RESPONSE";
+  readonly statusCode: number;
+  readonly requestId?: string;
+  readonly isRetryable: boolean;
 
   constructor(
     message: string,
-    code: string,
-    statusCode?: number,
+    code: UltramarineError["code"],
+    statusCode: number = 500,
     requestId?: string,
     isRetryable: boolean = false
   ) {
-    super(message);
+    super(`[Ultramarine] ${message}`);
     this.name = "UltramarineError";
     this.code = code;
     this.statusCode = statusCode;
@@ -89,18 +98,109 @@ export class UltramarineError extends Error {
 }
 
 /**
+ * Harmless telemetry keys that might contain substrings like "token" or "author"
+ * but MUST NOT be redacted.
+ */
+const PRESERVED_TELEMETRY_KEYS = new Set([
+  "tokens",
+  "totaltokens",
+  "prompttokens",
+  "completiontokens",
+  "cachedtokens",
+  "cachedprompttokens",
+  "author",
+  "authority",
+  "tokenusage",
+  "token_usage",
+]);
+
+/**
+ * Determines whether an object property name represents sensitive credentials,
+ * secrets, tokens, or auth headers (supporting camelCase, snake_case, kebab-case).
+ * GT-UM-01: Detects authorization, api_key, x-api-key, client_secret,
+ * stripe_secret_key, refreshToken, accessToken, password, cookie, privateKey, credentials.
+ */
+export function isSensitiveKey(rawKey: string): boolean {
+  if (!rawKey || typeof rawKey !== "string") return false;
+
+  const normalized = rawKey.trim().toLowerCase().replace(/[-_]/g, "");
+  if (PRESERVED_TELEMETRY_KEYS.has(normalized)) {
+    return false;
+  }
+
+  const TARGET_SENSITIVE_PATTERNS = [
+    "authorization",
+    "apikey",
+    "xapikey",
+    "clientsecret",
+    "stripesecretkey",
+    "stripesecret",
+    "refreshtoken",
+    "accesstoken",
+    "idtoken",
+    "authtoken",
+    "jwttoken",
+    "bearertoken",
+    "password",
+    "passwd",
+    "pass",
+    "cookie",
+    "cookies",
+    "setcookie",
+    "privatekey",
+    "privkey",
+    "secretkey",
+    "secret",
+    "credentials",
+    "credential",
+    "sessionid",
+    "sessionsecret",
+    "webhooksecret",
+    "signingsecret",
+  ];
+
+  for (const pattern of TARGET_SENSITIVE_PATTERNS) {
+    if (normalized === pattern || normalized.endsWith(pattern)) {
+      return true;
+    }
+  }
+
+  // Broad regex to catch variants like userPassword, db_password, my_secret, etc.
+  if (
+    /(?:^|[_-])(auth|authorization|token|secret|password|passwd|cookie|credential|credentials|privkey|private[_-]?key|api[_-]?key)(?:$|[_-])/i.test(
+      rawKey
+    )
+  ) {
+    return true;
+  }
+
+  // Catch camelCase variants: e.g. clientSecret, stripeSecretKey, refreshToken
+  if (
+    /[a-z0-9](Secret|Token|Password|Cookie|ApiKey|PrivateKey|Credentials)/.test(
+      rawKey
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Sanitizes sensitive key/value pairs and credential patterns before sending
  * trace payload to external LLM provider.
+ * GT-UM-01: Recursive sanitizer for nested objects, arrays, and credential values.
  */
 export function sanitizeTraceData(obj: unknown): unknown {
   if (obj === null || obj === undefined) return obj;
 
   if (typeof obj === "string") {
-    // Redact JWT tokens, Bearer tokens, and common API key patterns
+    // Redact Bearer tokens, JWT tokens, API keys, and GitHub personal tokens
     return obj
       .replace(/Bearer\s+[A-Za-z0-9\-_.~+/]+=*/gi, "Bearer [REDACTED_TOKEN]")
       .replace(/ey[A-Za-z0-9-_=]+\.[A-Za-z0-9-_=]+\.?[A-Za-z0-9-_.+/=]*/g, "[REDACTED_JWT]")
-      .replace(/(?:sk|bk|pi|live|test)_[0-9a-zA-Z]{16,}/g, "[REDACTED_API_KEY]");
+      .replace(/(?:sk|pk|bk|pi|live|test|sec)_[0-9a-zA-Z_]{16,}/g, "[REDACTED_API_KEY]")
+      .replace(/(?:ghp|gho|ghu|ghs|ghr)_[0-9a-zA-Z]{36,}/g, "[REDACTED_TOKEN]");
   }
 
   if (Array.isArray(obj)) {
@@ -110,11 +210,7 @@ export function sanitizeTraceData(obj: unknown): unknown {
   if (typeof obj === "object") {
     const sanitized: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
-      if (
-        /^(authorization|cookie|password|secret|apikey|api_key|token|access_token|private_key)$/i.test(
-          key
-        )
-      ) {
+      if (isSensitiveKey(key)) {
         sanitized[key] = "[REDACTED_SECRET]";
       } else {
         sanitized[key] = sanitizeTraceData(value);
@@ -131,29 +227,55 @@ export function sanitizeTraceData(obj: unknown): unknown {
  * - Uncached input: $0.15 / 1M tokens ($0.00000015 / token)
  * - Cached input: $0.03 / 1M tokens ($0.00000003 / token)
  * - Output (including reasoning): $0.50 / 1M tokens ($0.0000005 / token)
+ *
+ * GT-UM-04:
+ * 1. Preserves full floating-point calculation precision internally (no early toFixed truncation).
+ * 2. If usage metadata is missing/null, returns isKnown: false, costUsd: null without pretending zero cost.
  */
 export function calculateUltramarineCost(
-  promptTokens: number,
-  completionTokens: number,
-  cachedTokens: number = 0
+  promptTokens?: number | null,
+  completionTokens?: number | null,
+  cachedTokens?: number | null
 ): UltramarineCost {
-  const safeCached = Math.min(promptTokens, Math.max(0, cachedTokens));
-  const uncachedInput = Math.max(0, promptTokens - safeCached);
+  if (
+    promptTokens === undefined ||
+    promptTokens === null ||
+    completionTokens === undefined ||
+    completionTokens === null
+  ) {
+    return {
+      uncachedInputTokens: null,
+      cachedInputTokens: null,
+      completionTokens: null,
+      totalTokens: null,
+      costUsd: null,
+      isEstimated: true,
+      isKnown: false,
+      formula: "Usage metadata unavailable from provider",
+    };
+  }
 
+  const safeCached = Math.min(promptTokens, Math.max(0, cachedTokens ?? 0));
+  const uncachedInput = Math.max(0, promptTokens - safeCached);
+  const completion = Math.max(0, completionTokens);
+  const total = uncachedInput + safeCached + completion;
+
+  // Uncached: $0.15 / 1M, Cached: $0.03 / 1M, Output: $0.50 / 1M
+  // Internal calculation maintains full IEEE 754 precision
   const uncachedCost = (uncachedInput * 0.15) / 1_000_000;
   const cachedCost = (safeCached * 0.03) / 1_000_000;
-  const completionCost = (completionTokens * 0.5) / 1_000_000;
-
-  const totalCost = uncachedCost + cachedCost + completionCost;
+  const completionCost = (completion * 0.5) / 1_000_000;
+  const totalCostUsd = uncachedCost + cachedCost + completionCost;
 
   return {
     uncachedInputTokens: uncachedInput,
     cachedInputTokens: safeCached,
-    completionTokens,
-    totalTokens: promptTokens + completionTokens,
-    costUsd: Number(totalCost.toFixed(6)),
+    completionTokens: completion,
+    totalTokens: total,
+    costUsd: totalCostUsd,
     isEstimated: false,
-    formula: `(${uncachedInput} × $0.15 + ${safeCached} × $0.03 + ${completionTokens} × $0.50) / 1,000,000 = $${totalCost.toFixed(6)}`,
+    isKnown: true,
+    formula: `(${uncachedInput} × $0.15 + ${safeCached} × $0.03 + ${completion} × $0.50) / 1,000,000 = $${totalCostUsd.toFixed(6)}`,
   };
 }
 
@@ -169,74 +291,51 @@ export class UltramarineAdapter {
       options.baseURL ??
       process.env.PAPERINSTRUMENTS_BASE_URL ??
       "https://api.paperinstruments.com/v1";
-    this.modelName =
-      options.modelName ??
-      process.env.PAPERINSTRUMENTS_MODEL ??
-      "ultramarine-1-flash";
+    this.modelName = options.model ?? "ultramarine-1-flash";
     this.client = options.client;
   }
 
-  /**
-   * Helper to check whether a valid API key is present
-   */
   isConfigured(): boolean {
-    return Boolean(
-      this.apiKey &&
-        this.apiKey.trim().length > 0 &&
-        this.apiKey !== "your_actual_api_key" &&
-        this.apiKey !== "your_paperinstruments_api_key_here"
-    );
+    return Boolean(this.apiKey && this.apiKey.trim().length > 0);
   }
 
-  private getClient(): OpenAI {
+  getClient(): OpenAI {
     if (this.client) {
       return this.client;
     }
-    if (!this.isConfigured()) {
+
+    if (!this.apiKey || this.apiKey.trim().length === 0) {
       throw new UltramarineError(
-        "PAPERINSTRUMENTS_API_KEY is not configured. Please add your Paper Instruments API key to .env.local to enable live inference.",
+        "PAPERINSTRUMENTS_API_KEY is not configured in environment. Cannot perform live inference.",
         "API_KEY_MISSING",
         401,
         undefined,
         false
       );
     }
+
     this.client = new OpenAI({
       apiKey: this.apiKey,
       baseURL: this.baseURL,
-      maxRetries: 0, // Retries are handled with explicit boundaries below
     });
+
     return this.client;
   }
 
-  /**
-   * Constructs the specialized prompt for Ultramarine's reasoning engine
-   */
-  private buildForensicPrompt(timeline: ReconstructedTimeline): {
+  buildForensicPrompt(timeline: ReconstructedTimeline): {
     systemPrompt: string;
     userPrompt: string;
   } {
-    const sanitizedEvents = timeline.events.map((e) => ({
-      id: e.id,
-      name: e.name,
-      type: e.type,
-      startTimeMs: e.startTimeMs,
-      durationMs: e.durationMs,
-      status: e.status,
-      input: sanitizeTraceData(e.input),
-      output: sanitizeTraceData(e.output),
-      error: sanitizeTraceData(e.error),
-      isCausalAnomaly: e.isCausalAnomaly,
-    }));
+    const sanitizedEvents = sanitizeTraceData(timeline.events);
 
-    const systemPrompt = `You are GhostTrace's lead forensic investigator powered by Paper Instruments Ultramarine.
-Your role is to perform rigorous causal root cause analysis on failed AI agent execution traces.
+    const systemPrompt = `You are GhostTrace's Senior Autonomous Agent Forensic Diagnostician, powered by Paper Instruments Ultramarine-1-Flash.
+Your mission is to perform a rigorous causal investigation into an AI agent execution failure.
 
-CRITICAL GROUNDING RULES:
-1. Every claim in 'rootCause' must cite only verified event IDs present in the trace (e.g. evt_301, evt_302).
-2. DO NOT hallucinate or extrapolate events that do not appear in the provided timeline.
-3. If an upstream service or tool error caused a subsequent process crash, clearly map the causal dependency chain.
-4. If certain context or external telemetry is missing, list them explicitly under 'uncertaintyWarnings' and set 'humanReviewRequired' to true.
+CRITICAL INVESTIGATION DIRECTIVES:
+1. Identify the root cause mechanism that triggered the fatal trajectory.
+2. Ground all claims in specific, existing event IDs from the provided timeline.
+3. Distinguish between correlation and direct causation.
+4. Provide a concrete, production-ready code remediation.
 5. Return ONLY a single valid JSON object adhering strictly to the requested schema.`;
 
     const userPrompt = `Investigate the following failed AI agent trace:
@@ -287,7 +386,7 @@ Respond with a JSON object adhering to this schema:
       }
     );
 
-    // Bounded execution with max 1 retry for transient 502/503 errors
+    // GT-UM-05: Bounded retry respecting retry-after and x-should-retry (Max 1 retry)
     let lastError: unknown;
     for (let attempt = 0; attempt <= 1; attempt++) {
       try {
@@ -356,43 +455,87 @@ Respond with a JSON object adhering to this schema:
           }
         }
 
+        // GT-UM-03: Event reference validity and Causal claim verification separation
         const hasUnsupported = unsupportedIds.length > 0;
+        const eventReferenceValid = !hasUnsupported && supportedIds.length > 0;
+
+        // Causal claim is unverified unless confirmed by a formal symbolic or semantic verifier.
+        // Existence of referenced event IDs alone does NOT prove causal entailment!
+        const causalClaimUnverified = true;
+
+        // Human review is required if:
+        // 1. Any unsupported or non-existent event IDs were referenced
+        // 2. No supporting events were provided
+        // 3. The model itself indicated humanReviewRequired
+        // 4. Or the causal claim is unverified (all LLM hypotheses)
+        const humanReviewRequired =
+          hasUnsupported ||
+          supportedIds.length === 0 ||
+          investigation.humanReviewRequired ||
+          causalClaimUnverified;
+
         const evidenceValidation: UltramarineEvidenceValidation = {
-          eventReferenceValid: !hasUnsupported,
+          eventReferenceValid,
           validEventIds: supportedIds,
           unsupportedEventIds: unsupportedIds,
-          causalClaimUnverified: hasUnsupported || investigation.humanReviewRequired,
-          humanReviewRequired: hasUnsupported || investigation.humanReviewRequired,
+          causalClaimUnverified,
+          humanReviewRequired,
+          causalStatus: hasUnsupported
+            ? "unsupported_event_refs"
+            : "unverified_llm_hypothesis",
           warningMessage: hasUnsupported
             ? `Model referenced non-existent event IDs: ${unsupportedIds.join(", ")}`
-            : undefined,
+            : "Event citations exist in trace, but causal attribution is an AI hypothesis requiring human/symbolic verification.",
         };
 
-        // Usage and cost calculation
-        const usage = response.usage || {
-          prompt_tokens: 0,
-          completion_tokens: 0,
-          total_tokens: 0,
-        };
+        // GT-UM-04: Usage and cost calculation (accurate handling of present vs missing usage)
+        const rawUsage = response.usage;
+        let tokenUsage: {
+          promptTokens: number | null;
+          completionTokens: number | null;
+          totalTokens: number | null;
+          cachedPromptTokens: number | null;
+        } | null = null;
 
-        const cachedTokens =
-          (usage as { prompt_tokens_details?: { cached_tokens?: number } })
-            .prompt_tokens_details?.cached_tokens ?? 0;
-        const cost = calculateUltramarineCost(
-          usage.prompt_tokens,
-          usage.completion_tokens,
-          cachedTokens
-        );
+        let cost: UltramarineCost;
+
+        if (rawUsage && typeof rawUsage.prompt_tokens === "number") {
+          const cachedTokens =
+            (rawUsage as { prompt_tokens_details?: { cached_tokens?: number } })
+              .prompt_tokens_details?.cached_tokens ?? 0;
+
+          tokenUsage = {
+            promptTokens: rawUsage.prompt_tokens,
+            completionTokens: rawUsage.completion_tokens,
+            totalTokens: rawUsage.total_tokens,
+            cachedPromptTokens: cachedTokens,
+          };
+
+          cost = calculateUltramarineCost(
+            rawUsage.prompt_tokens,
+            rawUsage.completion_tokens,
+            cachedTokens
+          );
+        } else {
+          // Usage missing from API response: do not claim $0.000000 or zero tokens
+          tokenUsage = {
+            promptTokens: null,
+            completionTokens: null,
+            totalTokens: null,
+            cachedPromptTokens: null,
+          };
+          cost = calculateUltramarineCost(null, null, null);
+        }
 
         recordAgentBreadcrumb(
           "grounding",
-          `Ultramarine investigation completed for ${timeline.traceId} in ${latencyMs}ms ($${cost.costUsd})`,
+          `Ultramarine investigation completed for ${timeline.traceId} in ${latencyMs}ms ($${cost.costUsd ?? "unknown"})`,
           {
             traceId: timeline.traceId,
             costUsd: cost.costUsd,
             supportedIds,
             unsupportedIds,
-            tokens: usage.total_tokens,
+            tokens: rawUsage?.total_tokens ?? "unknown",
           }
         );
 
@@ -405,25 +548,34 @@ Respond with a JSON object adhering to this schema:
           latencyMs,
           investigation,
           evidenceValidation,
-          tokenUsage: {
-            promptTokens: usage.prompt_tokens,
-            completionTokens: usage.completion_tokens,
-            totalTokens: usage.total_tokens,
-            cachedPromptTokens: cachedTokens,
-          },
+          tokenUsage,
           cost,
           rawTraceId: timeline.traceId,
           sanitizedEventCount: timeline.events.length,
         };
       } catch (err: unknown) {
         lastError = err;
-        const errorRecord = err as { status?: number; statusCode?: number };
+        const errorRecord = err as {
+          status?: number;
+          statusCode?: number;
+          headers?: Record<string, string>;
+        };
         const status = errorRecord?.status || errorRecord?.statusCode;
-        const isTransient = status === 502 || status === 503;
+        const headers = errorRecord?.headers || {};
+        const xShouldRetry = headers["x-should-retry"] === "true";
+        const isTransient = status === 502 || status === 503 || xShouldRetry;
 
-        // Do not retry 401, 429 quota exhaustion, or client-side bad requests
-        if (attempt === 0 && isTransient) {
-          await new Promise((res) => setTimeout(res, 500));
+        // Strictly do NOT retry 401 (auth) or 429 (quota / rate limit)
+        if (attempt === 0 && isTransient && status !== 401 && status !== 429) {
+          let delayMs = 500;
+          const retryAfter = headers["retry-after"];
+          if (retryAfter) {
+            const parsedSeconds = parseInt(retryAfter, 10);
+            if (!isNaN(parsedSeconds) && parsedSeconds > 0) {
+              delayMs = Math.min(3000, parsedSeconds * 1000);
+            }
+          }
+          await new Promise((res) => setTimeout(res, delayMs));
           continue;
         }
         break;

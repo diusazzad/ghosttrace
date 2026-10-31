@@ -41,12 +41,13 @@ export interface EvidenceValidationInfo {
 }
 
 export interface TraceHypothesisCost {
-  uncachedInputTokens?: number;
-  cachedInputTokens?: number;
-  completionTokens?: number;
-  totalTokens?: number;
-  costUsd?: number;
+  uncachedInputTokens?: number | null;
+  cachedInputTokens?: number | null;
+  completionTokens?: number | null;
+  totalTokens?: number | null;
+  costUsd?: number | null;
   isEstimated?: boolean;
+  isKnown?: boolean;
   formula?: string;
 }
 
@@ -74,10 +75,11 @@ export interface TraceHypothesis {
   evidenceValidation?: EvidenceValidationInfo;
   cost?: TraceHypothesisCost;
   tokenUsage?: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+    promptTokens: number | null;
+    completionTokens: number | null;
+    totalTokens: number | null;
+    cachedPromptTokens?: number | null;
+  } | null;
   requestId?: string;
 }
 

@@ -29,7 +29,7 @@ GhostTrace integrates Ultramarine through a dedicated adapter class (`src/lib/ai
                             ▼
 ┌────────────────────────────────────────────────────────┐
 │            POST /api/traces/ultramarine                │
-│  - 1 MiB Hard Payload Limit Check                      │
+│  - 1 MiB Hard Payload Limit Check (getReader Streaming)│
 │  - Production Auth0 Verification (503 / 401)           │
 │  - Canonical OwnerId Session Binding                   │
 │  - Rate Limiter (30/min) & Concurrency Throttle (5 max)│
@@ -40,7 +40,7 @@ GhostTrace integrates Ultramarine through a dedicated adapter class (`src/lib/ai
 │            UltramarineAdapter (OpenAI SDK)             │
 │  - Data Sanitization (Redact Bearer, JWTs, Secrets)    │
 │  - BaseURL: https://api.paperinstruments.com/v1        │
-│  - Model: ultramarine-1-flash, reasoning: high         │
+│  - Model: ultramarine-1-flash, reasoning_effort: high  │
 │  - Bounded Retries: Max 1 retry for transient 502/503  │
 │  - Non-retryable: 401 (Auth Failure) & 429 (Quota)     │
 └───────────────────────────┬────────────────────────────┘
@@ -50,7 +50,7 @@ GhostTrace integrates Ultramarine through a dedicated adapter class (`src/lib/ai
 │           Validation & Grounding Safeguards            │
 │  - Zod Schema Validation (UltramarineInvestigation)    │
 │  - Event Citation Grounding (validEventIds vs trace)   │
-│  - Hallucination Flagging (unsupportedEventIds)        │
+│  - Causal Claim Separation (causalClaimUnverified)     │
 │  - Exact Inference Cost Breakdown ($0.15/$0.03/$0.50)  │
 └────────────────────────────────────────────────────────┘
 ```
@@ -72,48 +72,50 @@ const completion = await client.chat.completions.create({
   ],
   response_format: { type: "json_object" },
   max_completion_tokens: 2048,
-  // @ts-expect-error - OpenAI SDK typings omit custom provider reasoning parameters
-  reasoning: "high",
+  reasoning_effort: "high",
 });
 ```
 
 ---
 
-## 3. Privacy & Sensitive Data Sanitization
+## 3. Privacy & Sensitive Data Sanitization (GT-UM-01)
 
-Telemetry failure traces captured from real environments frequently contain sensitive credentials (e.g. Stripe secret keys, OAuth Bearer tokens, JWT tokens, passwords). 
-
-Before any trace payload is transmitted to Paper Instruments, `sanitizeTraceData()` performs recursive sanitization:
-- Replaces any object key matching `/(authorization|auth|token|secret|password|key|cookie)/i` with `"[REDACTED_SECRET]"`.
-- Replaces strings matching Bearer auth headers, JWT tokens (`eyJ...`), or common API key prefixes (`sk_...`).
-- Fully preserves structural event data, timestamps, event IDs, and execution metrics required for causal analysis.
-
----
-
-## 4. Grounding & Anti-Hallucination Verification
-
-To prevent AI hallucination from injecting incorrect diagnoses into production debugging workflows, GhostTrace validates Ultramarine output at two layers:
-
-1. **Strict Zod Schema Enforcement**:
-   - `summary`: Concise failure explanation.
-   - `rootCause`: Causal mechanism.
-   - `failureCategory`: Canonical category.
-   - `supportingEventIds`: List of causal event IDs.
-   - `remediation`: Concrete code/config fix.
-   - `uncertaintyWarnings`: Explicit limitations.
-   - `humanReviewRequired`: Flag for uncertain findings.
-
-2. **Deterministic Evidence Citation Grounding**:
-   - GhostTrace cross-checks all returned `supportingEventIds` against the actual timeline reconstructed from the trace.
-   - If Ultramarine cites an event ID not present in the trace:
-     - `eventReferenceValid` is set to `false`.
-     - `causalClaimUnverified` is set to `true`.
-     - `humanReviewRequired` is set to `true`.
-     - Unsupported event IDs are explicitly highlighted in the UI and reported as a warning.
+Telemetry failure traces captured from real environments frequently contain sensitive credentials. Before any trace payload is transmitted to Paper Instruments, `sanitizeTraceData()` performs recursive sanitization across all nested objects and arrays:
+- **Keys Sanitized**:
+  - `authorization`
+  - `api_key`, `apiKey`, `x-api-key`, `x_api_key`, `xApiKey`
+  - `client_secret`, `clientSecret`
+  - `stripe_secret_key`, `stripeSecretKey`
+  - `refreshToken`, `refresh_token`, `accessToken`, `access_token`
+  - `password`, `passwd`, `pass`, `dbPassword`
+  - `cookie`, `cookies`, `set-cookie`, `set_cookie`
+  - `privateKey`, `private_key`, `credentials`, `credential`
+- **Values Sanitized**:
+  - Bearer authentication headers (`Bearer [REDACTED_TOKEN]`)
+  - JWT tokens (`[REDACTED_JWT]`)
+  - Provider API keys (`sk_...`, `pk_...`, `pi_...`, `[REDACTED_API_KEY]`)
+  - GitHub personal access tokens (`ghp_...`, `[REDACTED_TOKEN]`)
+- **Preserved Telemetry Keys**:
+  - `tokens`, `totalTokens`, `promptTokens`, `completionTokens`, `tokenUsage` are strictly preserved to ensure accurate LLM observability.
 
 ---
 
-## 5. Inference Cost Transparency & Calculation
+## 4. Grounding vs Causal Verification Separation (GT-UM-03)
+
+GhostTrace enforces an unambiguous distinction between **event citation validity** and **causal proof**:
+
+1. **Event Reference Grounding (`eventReferenceValid`)**:
+   - `true` only if all cited event IDs exist within the trace timeline.
+   - If Ultramarine cites an event ID not present in the trace, `eventReferenceValid: false`, `unsupportedEventIds` lists the hallucinated IDs, and `humanReviewRequired: true`.
+
+2. **Causal Claim Verification (`causalClaimUnverified`)**:
+   - An LLM hypothesis does not constitute formal mathematical causal proof.
+   - Therefore, `causalClaimUnverified: true` is maintained for all AI-generated hypotheses, and the UI displays an explicit badge and notice:
+     `⚠ causal_claim_unverified: Causal attribution is an AI hypothesis requiring human/symbolic verification.`
+
+---
+
+## 5. Inference Cost Transparency & Calculation (GT-UM-04)
 
 GhostTrace tracks and displays exact inference costs using Paper Instruments' documented rates:
 
@@ -128,23 +130,36 @@ $$\text{Cost (USD)} = \frac{\text{uncachedInput} \times 0.15 + \text{cachedInput
 
 *Example*: An investigation with 20,000 uncached input tokens and 1,000 completion tokens costs exactly **$0.003500 USD**.
 
-The UI displays the exact cost alongside individual token counts, enabling engineering teams to audit LLM operating expenses.
+**Missing Usage Handling**:
+- If the upstream provider omits usage metadata, GhostTrace reports `costUsd: null` and `isKnown: false`.
+- The dashboard displays `Token Usage: Unknown` and `Inference Cost: Unknown`, never claiming $0.000000.
 
 ---
 
-## 6. Route Hardening & Production Security
+## 6. Route Hardening & True Streaming Payload Limits (GT-UM-02)
 
-Following up on the security review from TASK 02, all workflow execution routes (`/api/traces/workflow` and `/api/traces/ultramarine`) are protected by `src/lib/auth/workflowSecurity.ts`:
+All workflow execution routes (`/api/traces/workflow` and `/api/traces/ultramarine`) are protected by `src/lib/auth/workflowSecurity.ts`:
 
-1. **Payload Size Guard**: Hard 1 MiB limit enforced both via `Content-Length` header check and streaming byte count verification (returns `413 Payload Too Large`).
+1. **Incremental Streaming Byte Count (`req.body.getReader()`)**:
+   - Reads the request body chunk-by-chunk using the Web Streams API.
+   - If accumulated bytes exceed 1,048,576 bytes (1 MiB), the reader immediately calls `reader.cancel()` and returns `HTTP 413 Payload Too Large`.
+   - Oversized bodies are never fully buffered into memory.
 2. **Production Auth0 Check**: In production, returns `503 Service Unavailable` if Auth0 is unconfigured, and `401 Unauthorized` if session is missing.
 3. **Canonical OwnerId Binding**: Ignores any client-provided `ownerId` parameter and forcibly binds the trace execution to the verified session `sub`.
-4. **Rate Limiting & Concurrency**: Restricts workflow runs to 30 requests/minute per instance with a concurrency throttle of 5 simultaneous runs.
+4. **Concurrency Token Gating**: Concurrency slots are acquired **only after** body size validation and JSON parsing succeed, preventing slot exhaustion by malformed requests.
 
 ---
 
-## 7. Verification Status & Blocker Transparency
+## 7. Bounded Retry Policy (GT-UM-05)
 
-- **Automated Tests**: 13 unit and integration tests in `src/__tests__/ultramarine.test.ts` pass with 100% coverage, verifying configuration validation, secret scrubbing, cost formulas, Zod validation, error handling (401, 429, 502 retries), and hallucination detection.
-- **Live Verification Status**: **BLOCKED (P1)** pending provision of a valid `PAPERINSTRUMENTS_API_KEY`.
+- **Transient Errors**: Retries at most once for transient HTTP 502/503 errors or when the upstream response includes `x-should-retry: true`.
+- **Backoff & Rate Limit Headers**: Respects `retry-after` header delay up to 3 seconds.
+- **Non-Retryable**: Strictly no retries on HTTP 401 (Authentication Failure) or HTTP 429 (Rate Limit / Quota Exceeded).
+
+---
+
+## 8. Verification Status & Blocker Transparency
+
+- **Automated Tests**: 104 unit and integration tests passing across 13 test files (`pnpm test`), including 19 dedicated Ultramarine adapter tests and 8 workflow security tests.
+- **Live Verification Status**: **BLOCKED (P1)** pending provision of a valid `PAPERINSTRUMENTS_API_KEY` in `.env.local`.
 - **Integrity Guarantee**: When `PAPERINSTRUMENTS_API_KEY` is absent or invalid, GhostTrace throws a clean, typed `UltramarineError` (`API_KEY_MISSING`). It **never** disguises a deterministic fallback as a live Ultramarine API response.
