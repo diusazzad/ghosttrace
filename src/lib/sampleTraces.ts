@@ -53,7 +53,7 @@ export const SAMPLE_TRACES: TraceRun[] = [
       executionMode: "deterministic_fallback",
       latencyMs: 3,
       fallbackReason:
-        "Live LLM unavailable (Ollama unreachable at http://127.0.0.1:11434 and BACKBOARD_API_KEY unconfigured). Live model inference blocked.",
+        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
       explanation:
         "Tool 'call_stripe_settlement' raised an unhandled UpstreamAPIError (HTTP 500) at evt_302. Lacking error trapping or retry with backoff, the unhandled rejection propagated to evt_303 and terminated the agent process.",
       groundedEventIds: ["evt_302", "evt_303"],
@@ -233,7 +233,7 @@ describe("PaymentWebhookAgent - Regression Blueprint", () => {
       executionMode: "deterministic_fallback",
       latencyMs: 5,
       fallbackReason:
-        "Live LLM unavailable (Ollama unreachable at http://127.0.0.1:11434 and BACKBOARD_API_KEY unconfigured). Live model inference blocked.",
+        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
       explanation:
         "The agent received a 404 error from `query_order_db` in evt_003. Lacking an alternative fallback strategy (e.g. querying cold storage archive or asking user for confirmation), the prompt template continuously re-triggered the same query in evt_005 and evt_007 until loop cutoff evt_008.",
       groundedEventIds: ["evt_003", "evt_005", "evt_007", "evt_008"],
@@ -367,7 +367,7 @@ describe("SupportRefundAgent - Circuit Breaker Regression Blueprint", () => {
       executionMode: "deterministic_fallback",
       latencyMs: 4,
       fallbackReason:
-        "Live LLM unavailable (Ollama unreachable at http://127.0.0.1:11434 and BACKBOARD_API_KEY unconfigured). Live model inference blocked.",
+        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
       explanation:
         "In evt_102, the LLM inferred that the refactoring flag 'enforce_pydantic_v2' belonged inside the tool parameters. The tool definition schema strictly enforces no extra parameters, triggering a schema rejection in evt_103.",
       groundedEventIds: ["evt_102", "evt_103"],

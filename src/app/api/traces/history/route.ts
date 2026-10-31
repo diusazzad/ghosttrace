@@ -3,6 +3,8 @@ import { listInvestigations, getTraceStatistics } from "@/lib/db/traceRepository
 import { isMongoConfigured } from "@/lib/db/mongodb";
 import { getServerSession, isAuth0Configured } from "@/lib/auth/auth0";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     const isProd = process.env.NODE_ENV === "production";

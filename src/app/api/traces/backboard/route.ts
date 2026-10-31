@@ -3,6 +3,8 @@ import { reconstructTimeline } from "@/lib/detector";
 import { defaultBackboardAdapter } from "@/lib/ai/backboardAdapter";
 import { validateWorkflowSecurity } from "@/lib/auth/workflowSecurity";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   const securityCheck = await validateWorkflowSecurity(req);
   if (!securityCheck.ok) {

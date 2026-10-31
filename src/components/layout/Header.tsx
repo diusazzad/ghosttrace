@@ -1,13 +1,14 @@
+// src/components/layout/Header.tsx
 "use client";
 
 import React from "react";
 import {
-  Upload,
   Cpu,
   Search,
-  CheckCircle,
-  Shield,
+  Upload,
   Sparkles,
+  Shield,
+  CheckCircle,
 } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
@@ -15,9 +16,9 @@ export interface AuthStateDTO {
   isConfigured: boolean;
   isAuthenticated: boolean;
   user: {
-    name?: string;
-    email?: string;
     userId: string;
+    name?: string | null;
+    email?: string | null;
   } | null;
 }
 
@@ -52,6 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
           <input
             type="text"
+            aria-label="Search events, tools, or errors"
             placeholder="Search events, tools, or errors..."
             className="w-full bg-[#161b22] border border-gray-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
           />
@@ -60,6 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Trace Dropdown */}
         <select
           value={activeTrace.id}
+          aria-label="Select forensic sample trace"
           onChange={(e) => {
             const selected = traces.find((t) => t.id === e.target.value);
             if (selected) onSelectTrace(selected);
@@ -78,6 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center gap-3">
         <button
           onClick={onUploadClick}
+          aria-label="Upload custom trace JSON"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/60 hover:bg-gray-800 text-gray-200 text-xs transition"
         >
           <Upload className="h-3.5 w-3.5" />
@@ -88,6 +92,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={onAnalyzeClick}
           disabled={isAnalyzing || isAnalyzingUltramarine}
+          aria-label="Run Mastra and Gemma investigation"
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-medium shadow-lg shadow-purple-600/20 transition disabled:opacity-50"
         >
           <Cpu className={`h-3.5 w-3.5 ${isAnalyzing ? "animate-spin" : ""}`} />
@@ -103,6 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             onClick={onUltramarineClick}
             disabled={isAnalyzing || isAnalyzingUltramarine}
+            aria-label="Analyze trace with Paper Instruments Ultramarine-1-Flash"
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-medium shadow-lg shadow-cyan-600/20 transition disabled:opacity-50"
             title="Analyze trace with Paper Instruments Ultramarine-1-Flash"
           >

@@ -3,6 +3,8 @@ import { reconstructTimeline } from "@/lib/detector";
 import { defaultGemmaAdapter } from "@/lib/ai/gemmaAdapter";
 import { generateRegressionTest } from "@/lib/testGenerator";
 
+export const dynamic = "force-dynamic";
+
 const MAX_BODY_BYTES = 1024 * 1024; // 1 MiB
 
 export async function POST(req: NextRequest) {

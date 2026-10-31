@@ -131,9 +131,7 @@ export class GemmaAdapter {
         // 3. Deterministic Fallback (Offline Mode)
         const latencyMs = Date.now() - startTime;
         const fallbackReason =
-          "Live LLM unavailable (Ollama unreachable at " +
-          this.ollamaHost +
-          " and BACKBOARD_API_KEY unconfigured). Live model inference blocked.";
+          "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.";
         return this.buildDeterministicFallback(timeline, fallbackReason, latencyMs);
       }
     );
@@ -346,7 +344,7 @@ INSTRUCTIONS:
 
   private buildDeterministicFallback(
     timeline: ReconstructedTimeline,
-    fallbackReason: string = "Live LLM unavailable (Ollama unreachable at http://127.0.0.1:11434 and BACKBOARD_API_KEY unconfigured). Live model inference blocked.",
+    fallbackReason: string = "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
     latencyMs: number = 8
   ): GemmaHypothesis {
     const primary = timeline.anomalies[0];

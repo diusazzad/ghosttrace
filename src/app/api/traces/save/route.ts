@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { saveInvestigation, StoredInvestigation } from "@/lib/db/traceRepository";
 import { getServerSession, isAuth0Configured } from "@/lib/auth/auth0";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(req: NextRequest) {
   try {
     const isProd = process.env.NODE_ENV === "production";
