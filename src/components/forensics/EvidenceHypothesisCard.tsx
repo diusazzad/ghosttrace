@@ -10,6 +10,7 @@ import {
   Cpu,
   Coins,
   ShieldAlert,
+  Info,
 } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
@@ -63,11 +64,35 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
     : hypothesis;
 
   const isFallback =
-    currentDisplay.executionMode === "deterministic_fallback";
+    currentDisplay.executionMode === "deterministic_fallback" ||
+    currentDisplay.provider === "deterministic_rules" ||
+    currentDisplay.provider === "deterministic";
+
   const validationInfo = currentDisplay.evidenceValidation;
   const isUltramarineProvider =
     currentDisplay.provider === "paperinstruments" ||
     currentDisplay.provider === "ultramarine";
+
+  // Validate citations against actual trace events
+  const allValidEventIds = new Set(trace.events.map((e) => e.id));
+  
+  // Model-supplied evidence citations
+  const modelSuppliedCitations = Array.from(
+    new Set(
+      (currentDisplay.groundedEventIds || []).filter(
+        (id) => typeof id === "string" && allValidEventIds.has(id)
+      )
+    )
+  );
+
+  // System-detected anomaly events from deterministic heuristics
+  const systemAnomalyIds = Array.from(
+    new Set(
+      trace.events
+        .filter((e) => e.isCausalAnomaly || e.status === "error")
+        .map((e) => e.id)
+    )
+  );
 
   return (
     <div
@@ -89,7 +114,7 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
             }`}
           >
             <Cpu className="h-3.5 w-3.5 text-purple-400" />
-            <span>Mastra + Gemma Baseline</span>
+            <span>Mastra Forensic Engine</span>
           </button>
           <button
             onClick={() => setActiveView("ultramarine")}
@@ -132,12 +157,16 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
             className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
               isUltramarineProvider
                 ? "bg-cyan-950/50 border-cyan-500/40 text-cyan-300"
+                : isFallback
+                ? "bg-emerald-950/50 border-emerald-500/40 text-emerald-300"
                 : "bg-purple-950/50 border-purple-500/40 text-purple-300"
             }`}
           >
             {isUltramarineProvider
               ? "provider: paperinstruments"
-              : `provider: ${currentDisplay.provider || "mastra"}`}
+              : isFallback
+              ? "provider: deterministic_rules"
+              : `provider: ${currentDisplay.provider || "gemma"}`}
           </span>
 
           {/* Execution Mode Badge */}
@@ -146,11 +175,11 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
               isFallback
                 ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
                 : isUltramarineProvider
-                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
+                ? "bg-cyan-950/60 border-cyan-500/40 text-cyan-300"
                 : "bg-blue-950/60 border-blue-500/40 text-blue-300"
             }`}
           >
-            {isFallback ? "mode: deterministic" : "mode: live_inference"}
+            {isFallback ? "mode: rule_engine" : "mode: live_inference"}
           </span>
 
           {/* Confidence Badge */}
@@ -169,14 +198,14 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
       </div>
 
       <div className="p-4 space-y-4 text-sm flex-1 flex flex-col justify-between">
-        {/* Grounded Deterministic Notice Banner */}
-        {isFallback && currentDisplay.fallbackReason && (
+        {/* Deterministic Forensic Notice Banner (Truthful language per Task 2) */}
+        {isFallback && (
           <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-emerald-300">Grounded Deterministic Engine Active</p>
+              <p className="font-semibold text-emerald-300">Deterministic Forensic Engine Active</p>
               <p className="text-[11px] text-emerald-400/90 mt-0.5">
-                {currentDisplay.fallbackReason}
+                Rule-based analysis completed successfully. LLM inference was not used for this investigation. Event references were validated against the original trace.
               </p>
             </div>
           </div>
@@ -198,125 +227,57 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
         {/* Model and Title */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-xs text-gray-400 font-mono">
-            <span>Model: {currentDisplay.model}</span>
-            {currentDisplay.latencyMs !== undefined && (
-              <span>Latency: {currentDisplay.latencyMs}ms</span>
-            )}
+            <span>
+              {isFallback
+                ? "Engine: Rule-Based Forensic Analyzer"
+                : `Engine: ${currentDisplay.model}`}
+            </span>
+            <span>{currentDisplay.latencyMs ?? 0}ms latency</span>
           </div>
-          <h4 className="text-sm font-semibold text-white leading-snug">
+          <h4 className="text-base font-bold text-white leading-snug">
             {currentDisplay.title}
           </h4>
         </div>
 
-        {/* GT-UM-04: Actual Token Usage & Inference Cost Card */}
-        {currentDisplay.cost && (
-          <div className="p-3 rounded-lg bg-[#161b22] border border-gray-800 text-xs flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-gray-300 font-medium">
-                <Coins className="h-3.5 w-3.5 text-amber-400" />
-                <span>Actual Inference Cost:</span>
-                {currentDisplay.cost.costUsd !== null && currentDisplay.cost.costUsd !== undefined ? (
-                  <span className="font-mono font-bold text-emerald-400">
-                    ${currentDisplay.cost.costUsd.toFixed(6)}
-                  </span>
-                ) : (
-                  <span className="font-mono font-bold text-amber-400">
-                    Unknown
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] text-gray-400 font-mono">
-                Official Paper Instruments Rates
-              </span>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 pt-1 border-t border-gray-800/60 text-[10px] font-mono text-gray-400">
-              <div>
-                <span className="text-gray-500 block">Uncached In ($0.15/M):</span>
-                <span className="text-gray-300">
-                  {currentDisplay.cost.uncachedInputTokens !== null && currentDisplay.cost.uncachedInputTokens !== undefined
-                    ? `${currentDisplay.cost.uncachedInputTokens} tok`
-                    : "Unknown"}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500 block">Cached In ($0.03/M):</span>
-                <span className="text-gray-300">
-                  {currentDisplay.cost.cachedInputTokens !== null && currentDisplay.cost.cachedInputTokens !== undefined
-                    ? `${currentDisplay.cost.cachedInputTokens} tok`
-                    : "Unknown"}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500 block">Completion ($0.50/M):</span>
-                <span className="text-gray-300">
-                  {currentDisplay.cost.completionTokens !== null && currentDisplay.cost.completionTokens !== undefined
-                    ? `${currentDisplay.cost.completionTokens} tok`
-                    : "Unknown"}
-                </span>
-              </div>
-            </div>
-
-            {currentDisplay.cost.formula && (
-              <p className="text-[9px] text-gray-500 font-mono italic">
-                Formula: {currentDisplay.cost.formula}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Detailed Explanation */}
-        <div className="p-3 rounded-lg bg-[#161b22] border border-gray-800 text-gray-300 leading-relaxed text-[11px]">
-          {currentDisplay.explanation}
+        {/* Explanation */}
+        <div className="space-y-1">
+          <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+            Root Cause Diagnosis
+          </span>
+          <p className="text-gray-300 text-xs leading-relaxed bg-[#161b22] p-3 rounded-lg border border-gray-800">
+            {currentDisplay.explanation}
+          </p>
         </div>
 
-        {/* GT-UM-03: Evidence Verification & Causal Status Separation */}
+        {/* Grounding & Hallucination Defense Report */}
         {validationInfo && (
-          <div className="p-3 rounded-lg bg-[#161b22] border border-gray-800 flex flex-col gap-2 text-xs">
+          <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <span className="text-gray-400 font-medium flex items-center gap-1.5">
-                <FileCheck2 className="h-3.5 w-3.5 text-blue-400" />
-                <span>Telemetry Evidence Grounding:</span>
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                <FileCheck2 className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Grounding Verification</span>
               </span>
-              <div className="flex items-center gap-2 font-mono text-[10px]">
-                <span
-                  className={
-                    validationInfo.eventReferenceValid
-                      ? "text-emerald-400 font-semibold"
-                      : "text-red-400 font-semibold"
-                  }
-                >
-                  {validationInfo.eventReferenceValid
-                    ? "✓ event_refs_valid"
-                    : "✗ invalid_event_refs"}
-                </span>
-                <span className="text-gray-600">|</span>
-                <span
-                  className={
-                    validationInfo.causalClaimUnverified
-                      ? "text-amber-400 font-semibold"
-                      : "text-emerald-400 font-semibold"
-                  }
-                >
-                  {validationInfo.causalClaimUnverified
-                    ? "⚠ causal_claim_unverified"
-                    : "✓ causal_claim_verified"}
-                </span>
-              </div>
+              <span
+                className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                  validationInfo.eventReferenceValid && !validationInfo.causalClaimUnverified
+                    ? "bg-emerald-950 text-emerald-300 border border-emerald-500/30"
+                    : "bg-amber-950 text-amber-300 border border-amber-500/30"
+                }`}
+              >
+                {validationInfo.eventReferenceValid && !validationInfo.causalClaimUnverified
+                  ? "Citations Verified"
+                  : "Unverified Claims Detected"}
+              </span>
             </div>
 
             {validationInfo.warningMessage && (
-              <p className="text-[10px] text-amber-300 bg-amber-950/20 p-2 rounded border border-amber-500/20">
-                ⚠ {validationInfo.warningMessage}
-              </p>
-            )}
-
-            {validationInfo.humanReviewRequired && (
-              <p className="text-[10px] text-amber-300/90 bg-amber-950/20 p-2 rounded border border-amber-500/20">
-                ⚠ Human Review Required: AI-attributed causal findings must be
-                confirmed against system state transitions before applying code
-                fixes.
-              </p>
+              <div className="p-2.5 rounded bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-[11px] leading-relaxed">
+                  <span className="font-semibold">Review Alert:</span>{" "}
+                  {validationInfo.warningMessage}
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -339,61 +300,79 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
             </div>
           )}
 
-        {/* Grounded Trace Event Citations */}
-        <div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-2">
-            <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
-            <span>Causal Event Citations (Click to highlight in timeline):</span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {(() => {
-              const rawCitations =
-                currentDisplay.groundedEventIds && currentDisplay.groundedEventIds.length > 0
-                  ? currentDisplay.groundedEventIds
-                  : (currentDisplay as any)?.citations && (currentDisplay as any).citations.length > 0
-                  ? (currentDisplay as any).citations
-                  : (currentDisplay as any)?.causalEventIds && (currentDisplay as any).causalEventIds.length > 0
-                  ? (currentDisplay as any).causalEventIds
-                  : trace.events
-                      .filter((e) => e.isCausalAnomaly || e.status === "error")
-                      .map((e) => e.id);
-
-              if (!rawCitations || rawCitations.length === 0) {
-                return (
-                  <span className="text-xs text-gray-500 font-mono italic">
-                    No causal anomaly events flagged
-                  </span>
-                );
-              }
-
-              return rawCitations.map((eventId: string) => {
-                const isSelected = selectedEventId === eventId;
-                return (
-                  <button
-                    key={eventId}
-                    onClick={() => onSelectEvent(isSelected ? null : eventId)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
-                      isSelected
-                        ? isUltramarineProvider
-                          ? "bg-cyan-600 text-white font-bold shadow-lg shadow-cyan-600/30 scale-105"
-                          : "bg-purple-600 text-white font-bold shadow-lg shadow-purple-600/30 scale-105"
-                        : isUltramarineProvider
-                        ? "bg-cyan-950/30 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/40"
-                        : "bg-purple-950/30 text-purple-300 border border-purple-500/30 hover:bg-purple-900/40"
-                    }`}
-                  >
-                    <Sparkles
-                      className={`h-3 w-3 ${
-                        isUltramarineProvider ? "text-cyan-400" : "text-purple-400"
+        {/* Separated Citations & System Anomalies (Truthful distinction per Task 3) */}
+        <div className="space-y-3">
+          {/* Section A: Model-Supplied Evidence Citations */}
+          {modelSuppliedCitations.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                <span>Model-Supplied Evidence Citations (Validated Event References):</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {modelSuppliedCitations.map((eventId) => {
+                  const isSelected = selectedEventId === eventId;
+                  return (
+                    <button
+                      key={eventId}
+                      onClick={() => onSelectEvent(isSelected ? null : eventId)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
+                        isSelected
+                          ? isUltramarineProvider
+                            ? "bg-cyan-600 text-white font-bold shadow-lg shadow-cyan-600/30 scale-105"
+                            : "bg-purple-600 text-white font-bold shadow-lg shadow-purple-600/30 scale-105"
+                          : isUltramarineProvider
+                          ? "bg-cyan-950/30 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/40"
+                          : "bg-purple-950/30 text-purple-300 border border-purple-500/30 hover:bg-purple-900/40"
                       }`}
-                    />
-                    <span>#{eventId}</span>
-                  </button>
-                );
-              });
-            })()}
-          </div>
+                    >
+                      <Sparkles
+                        className={`h-3 w-3 ${
+                          isUltramarineProvider ? "text-cyan-400" : "text-purple-400"
+                        }`}
+                      />
+                      <span>#{eventId}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Section B: System-Detected Anomaly Events */}
+          {systemAnomalyIds.length > 0 && (
+            <div>
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 mb-1.5">
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-400" />
+                <span>System-Detected Anomaly Events (Rule-Based Timeline Heuristics):</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {systemAnomalyIds.map((eventId) => {
+                  const isSelected = selectedEventId === eventId;
+                  return (
+                    <button
+                      key={eventId}
+                      onClick={() => onSelectEvent(isSelected ? null : eventId)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-mono transition flex items-center gap-1.5 ${
+                        isSelected
+                          ? "bg-amber-600 text-white font-bold shadow-lg scale-105"
+                          : "bg-amber-950/30 text-amber-300 border border-amber-500/30 hover:bg-amber-900/40"
+                      }`}
+                    >
+                      <AlertTriangle className="h-3 w-3 text-amber-400" />
+                      <span>#{eventId}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {modelSuppliedCitations.length === 0 && systemAnomalyIds.length === 0 && (
+            <div className="text-xs text-gray-500 font-mono italic">
+              No causal anomaly events flagged in trace.
+            </div>
+          )}
         </div>
 
         {/* Actionable Fix Recommendation */}
@@ -412,23 +391,27 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
           <div className="flex items-center gap-1.5">
             <span
               className={`h-1.5 w-1.5 rounded-full ${
-                isUltramarineProvider ? "bg-cyan-400" : "bg-purple-400"
+                isUltramarineProvider ? "bg-cyan-400" : isFallback ? "bg-emerald-400" : "bg-purple-400"
               } animate-pulse`}
             />
             <span className="text-gray-300">Provider:</span>
             <span
               className={
-                isUltramarineProvider ? "text-cyan-300" : "text-purple-300"
+                isUltramarineProvider ? "text-cyan-300" : isFallback ? "text-emerald-300" : "text-purple-300"
               }
             >
               {isUltramarineProvider
                 ? "Paper Instruments (ultramarine-1-flash)"
-                : `${currentDisplay.provider || "deterministic"}`}
+                : isFallback
+                ? "Deterministic Timeline Rules Engine"
+                : `${currentDisplay.provider || "gemma"}`}
             </span>
           </div>
           <span className="text-gray-500">
             {isUltramarineProvider
               ? "open_ai_sdk: base_url=api.paperinstruments.com"
+              : isFallback
+              ? "deterministic: timeline_analyzer"
               : "otel: gen_ai.system=google_gemma"}
           </span>
         </div>

@@ -8,9 +8,9 @@ import {
   Network,
   Globe,
   Database,
-  ShieldAlert,
+  Info,
 } from "lucide-react";
-import { TraceRun } from "@/types/trace";
+import { TraceRun, PartnerStatus, TelemetrySource } from "@/types/trace";
 
 interface PartnerDiagnosticsBarProps {
   trace: TraceRun;
@@ -19,22 +19,56 @@ interface PartnerDiagnosticsBarProps {
 export const PartnerDiagnosticsBar: React.FC<PartnerDiagnosticsBarProps> = ({
   trace,
 }) => {
-  // Extract or synthesize contextual telemetry based on current trace
+  const isFixture = trace.isSampleFixture ?? true;
+  const source: TelemetrySource = isFixture ? "fixture" : "live";
+
+  // Use real backend diagnostic result if present, otherwise explicit fixture telemetry
+  const customDiagnostics = trace.partnerDiagnostics;
+
   const isLoop = trace.failureCategory === "infinite_loop";
   const isHallucination = trace.failureCategory === "parameter_hallucination";
 
-  const tabpfnScore = isLoop ? 0.984 : isHallucination ? 0.941 : 0.962;
-  const tabpfnRisk = isLoop ? "CRITICAL" : "HIGH";
+  // TabPFN diagnostic state
+  const tabpfnStatus: PartnerStatus = customDiagnostics?.tabpfn?.status ?? (isFixture ? "simulated" : "not_configured");
+  const tabpfnValue = customDiagnostics?.tabpfn?.metricValue ?? (isLoop ? "98.4%" : isHallucination ? "94.1%" : "96.2%");
 
-  const tigerCluster = isLoop
-    ? "CLUSTER-LOOP-404-QUERY"
-    : isHallucination
-    ? "CLUSTER-SCHEMA-ARG-MISMATCH"
-    : "CLUSTER-UPSTREAM-500-CRASH";
-  const tigerOccurrences = isLoop ? 28 : isHallucination ? 19 : 14;
+  // Tiger Data diagnostic state
+  const tigerStatus: PartnerStatus = customDiagnostics?.tigerData?.status ?? (isFixture ? "simulated" : "not_configured");
+  const tigerCluster = customDiagnostics?.tigerData?.metricValue ?? (isLoop ? "#CLUSTER-LOOP-404" : isHallucination ? "#CLUSTER-ARG-MISMATCH" : "#CLUSTER-UPSTREAM-500");
 
-  const temporalWorkflowId = `wf_${trace.agentName.toLowerCase()}_${trace.id.slice(-6)}`;
-  const browserbaseSessionId = `ssn_bb_${trace.id.slice(-8)}`;
+  // Temporal diagnostic state
+  const temporalStatus: PartnerStatus = customDiagnostics?.temporal?.status ?? (isFixture ? "simulated" : "not_configured");
+  const temporalWorkflowId = customDiagnostics?.temporal?.executionId ?? (isFixture ? `sim_wf_${trace.id.slice(-6)}` : "None");
+
+  // Browserbase diagnostic state
+  const browserbaseStatus: PartnerStatus = customDiagnostics?.browserbase?.status ?? (isFixture ? "simulated" : "not_configured");
+  const browserbaseSessionId = customDiagnostics?.browserbase?.executionId ?? (isFixture ? `sim_bb_${trace.id.slice(-8)}` : "None");
+
+  const getStatusBadge = (status: PartnerStatus, itemSource: TelemetrySource) => {
+    switch (status) {
+      case "connected":
+      case "executed":
+        return (
+          <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-500/30">
+            {itemSource === "live" ? "Live Executed" : "Verified Fixture"}
+          </span>
+        );
+      case "simulated":
+        return (
+          <span className="text-[10px] font-mono text-amber-300 bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-500/30">
+            Simulated Demo
+          </span>
+        );
+      case "not_configured":
+      case "unavailable":
+      default:
+        return (
+          <span className="text-[10px] font-mono text-gray-400 bg-gray-800/60 px-1.5 py-0.5 rounded border border-gray-700/50">
+            Not Configured
+          </span>
+        );
+    }
+  };
 
   return (
     <div className="rounded-xl border border-gray-800 bg-[#0d1117] p-4 flex flex-col gap-3 shadow-xl">
@@ -46,8 +80,13 @@ export const PartnerDiagnosticsBar: React.FC<PartnerDiagnosticsBarProps> = ({
           </h3>
         </div>
         <div className="flex items-center gap-2 text-[10px] font-mono">
-          <span className="px-2 py-0.5 rounded bg-purple-950/40 text-purple-300 border border-purple-500/30">
-            TabPFN • Tiger Data • Temporal • Browserbase
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700">
+            <Info className="h-3 w-3 text-cyan-400" />
+            <span>
+              {isFixture
+                ? "Data Source: Illustrative Fixture Trace"
+                : "Data Source: Live Captured Ingestion"}
+            </span>
           </span>
         </div>
       </div>
@@ -60,20 +99,18 @@ export const PartnerDiagnosticsBar: React.FC<PartnerDiagnosticsBarProps> = ({
               <Network className="h-3.5 w-3.5 text-cyan-400" />
               <span>TabPFN Anomaly</span>
             </span>
-            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/50 px-1.5 py-0.5 rounded border border-cyan-500/30">
-              Risk: {tabpfnRisk}
-            </span>
+            {getStatusBadge(tabpfnStatus, source)}
           </div>
           <div>
             <div className="text-lg font-bold font-mono text-cyan-300">
-              {(tabpfnScore * 100).toFixed(1)}%
+              {tabpfnValue}
             </div>
             <p className="text-[10px] text-gray-400">
               Prior Labs Tabular Foundation Model (Metric Drift Analysis)
             </p>
           </div>
           <div className="text-[9px] font-mono text-gray-500 border-t border-gray-800/60 pt-1">
-            CI: [{(tabpfnScore - 0.05).toFixed(2)}, 0.99] • tabpfn-3.5
+            {isFixture ? "Mode: Illustrative TabPFN Demo" : "Mode: Live TabPFN SDK Probe"}
           </div>
         </div>
 
@@ -84,20 +121,18 @@ export const PartnerDiagnosticsBar: React.FC<PartnerDiagnosticsBarProps> = ({
               <Database className="h-3.5 w-3.5 text-amber-400" />
               <span>Tiger Data Cluster</span>
             </span>
-            <span className="text-[10px] font-mono text-amber-400 bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-500/30">
-              98.4% Match
-            </span>
+            {getStatusBadge(tigerStatus, source)}
           </div>
           <div>
             <div className="text-xs font-mono font-bold text-amber-300 truncate">
-              #{tigerCluster}
+              {tigerCluster}
             </div>
             <p className="text-[10px] text-gray-400">
-              Matched across {tigerOccurrences} historical multi-agent incidents
+              Historical incident clustering via graph embeddings
             </p>
           </div>
           <div className="text-[9px] font-mono text-gray-500 border-t border-gray-800/60 pt-1">
-            Graph Pattern: Persistent MongoDB Atlas
+            {isFixture ? "Graph Pattern: Simulated Fixture Trace" : "Graph Pattern: Persistent MongoDB Atlas"}
           </div>
         </div>
 
@@ -108,20 +143,18 @@ export const PartnerDiagnosticsBar: React.FC<PartnerDiagnosticsBarProps> = ({
               <GitBranch className="h-3.5 w-3.5 text-emerald-400" />
               <span>Temporal State Guard</span>
             </span>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-500/30">
-              Divergence Flagged
-            </span>
+            {getStatusBadge(temporalStatus, source)}
           </div>
           <div>
             <div className="text-xs font-mono font-bold text-emerald-300 truncate">
               {temporalWorkflowId}
             </div>
             <p className="text-[10px] text-gray-400">
-              State replay validation detected non-deterministic tool divergence
+              Durable execution state replay &amp; divergence detection
             </p>
           </div>
           <div className="text-[9px] font-mono text-gray-500 border-t border-gray-800/60 pt-1">
-            Deterministic Circuit Breaker: Enforced
+            {isFixture ? "Guard: Simulated Fixture Blueprint" : "Guard: Live Temporal Server"}
           </div>
         </div>
 
@@ -132,20 +165,18 @@ export const PartnerDiagnosticsBar: React.FC<PartnerDiagnosticsBarProps> = ({
               <Globe className="h-3.5 w-3.5 text-purple-400" />
               <span>Browserbase &amp; Memory</span>
             </span>
-            <span className="text-[10px] font-mono text-purple-400 bg-purple-950/50 px-1.5 py-0.5 rounded border border-purple-500/30">
-              DOM Traced
-            </span>
+            {getStatusBadge(browserbaseStatus, source)}
           </div>
           <div>
             <div className="text-xs font-mono font-bold text-purple-300 truncate">
               {browserbaseSessionId}
             </div>
             <p className="text-[10px] text-gray-400">
-              Session state &amp; Backboard Sanzio schema memory synchronized
+              Headless browser session tracing &amp; Backboard memory
             </p>
           </div>
           <div className="text-[9px] font-mono text-gray-500 border-t border-gray-800/60 pt-1">
-            Debugger: Headless DevTools Replay Ready
+            {isFixture ? "Debugger: Demo Fixture Session" : "Debugger: Live Browserbase Session"}
           </div>
         </div>
       </div>

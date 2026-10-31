@@ -2,6 +2,8 @@ import { TraceRun } from "@/types/trace";
 
 export const SAMPLE_TRACES: TraceRun[] = [
   {
+    isSampleFixture: true,
+    fixtureDisclaimer: "Illustrative sample trace for forensic testing and demonstration.",
     id: "trace-tool-crash-004",
     agentName: "PaymentWebhookAgent",
     failureCategory: "unhandled_tool_error",
@@ -59,12 +61,12 @@ export const SAMPLE_TRACES: TraceRun[] = [
     ],
     hypothesis: {
       title: "Unhandled Tool Error: call_stripe_settlement",
-      model: "Google Gemma 2 (Deterministic Grounding Mode)",
+      model: "Rule-Based Deterministic Grounding Engine",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 3,
       fallbackReason:
-        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
+        "Deterministic Forensic Engine Active — Rule-based analysis completed successfully without LLM inference.",
       explanation:
         "Tool 'call_stripe_settlement' raised an unhandled UpstreamAPIError (HTTP 500) at evt_302. Lacking error trapping or retry with backoff, the unhandled rejection propagated to evt_303 and terminated the agent process.",
       groundedEventIds: ["evt_302", "evt_303"],
@@ -138,7 +140,7 @@ describe("PaymentWebhookAgent - Forensic Regression Safeguard", () => {
         status: "success",
         durationMs: 4,
         inputSummary:
-          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Mode))",
+          "Evaluated causal events via deterministic_rules (Rule-Based Deterministic Grounding Engine)",
         outputSummary:
           "Formulated diagnosis: 'Unhandled Tool Error: call_stripe_settlement' (2 citations)",
       },
@@ -153,6 +155,8 @@ describe("PaymentWebhookAgent - Forensic Regression Safeguard", () => {
     ],
   },
   {
+    isSampleFixture: true,
+    fixtureDisclaimer: "Illustrative sample trace for forensic testing and demonstration.",
     id: "trace-loop-001",
     agentName: "OrderFulfillmentAgent",
     failureCategory: "infinite_loop",
@@ -248,12 +252,12 @@ describe("PaymentWebhookAgent - Forensic Regression Safeguard", () => {
     ],
     hypothesis: {
       title: "Cyclic Tool Invalidation Loop via Unhandled 404",
-      model: "Google Gemma 2 (Deterministic Grounding Mode)",
+      model: "Rule-Based Deterministic Grounding Engine",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 5,
       fallbackReason:
-        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
+        "Deterministic Forensic Engine Active — Rule-based analysis completed successfully without LLM inference.",
       explanation:
         "The agent received a 404 error from `query_order_db` in evt_003. Lacking an alternative fallback strategy (e.g. querying cold storage archive or asking user for confirmation), the prompt template continuously re-triggered the same query in evt_005 and evt_007 until loop cutoff evt_008.",
       groundedEventIds: ["evt_003", "evt_005", "evt_007", "evt_008"],
@@ -321,7 +325,7 @@ describe("OrderFulfillmentAgent - Circuit Breaker Regression Blueprint", () => {
         status: "success",
         durationMs: 5,
         inputSummary:
-          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Mode))",
+          "Evaluated causal events via deterministic_rules (Rule-Based Deterministic Grounding Engine)",
         outputSummary:
           "Formulated diagnosis: 'Cyclic Tool Invalidation Loop via Unhandled 404' (4 citations)",
       },
@@ -336,6 +340,8 @@ describe("OrderFulfillmentAgent - Circuit Breaker Regression Blueprint", () => {
     ],
   },
   {
+    isSampleFixture: true,
+    fixtureDisclaimer: "Illustrative sample trace for forensic testing and demonstration.",
     id: "trace-arg-hallucination-002",
     agentName: "CodeRefactorAgent",
     failureCategory: "parameter_hallucination",
@@ -388,12 +394,12 @@ describe("OrderFulfillmentAgent - Circuit Breaker Regression Blueprint", () => {
     ],
     hypothesis: {
       title: "Schema Argument Hallucination on Tool Invocation",
-      model: "Google Gemma 2 (Deterministic Grounding Mode)",
+      model: "Rule-Based Deterministic Grounding Engine",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 4,
       fallbackReason:
-        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
+        "Deterministic Forensic Engine Active — Rule-based analysis completed successfully without LLM inference.",
       explanation:
         "In evt_102, the LLM inferred that the refactoring flag 'enforce_pydantic_v2' belonged inside the tool parameters. The tool definition schema strictly enforces no extra parameters, triggering a schema rejection in evt_103.",
       groundedEventIds: ["evt_102", "evt_103"],
@@ -455,7 +461,7 @@ describe("Tool Schema Strictness - apply_ast_patch Blueprint", () => {
         status: "success",
         durationMs: 4,
         inputSummary:
-          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Mode))",
+          "Evaluated causal events via deterministic_rules (Rule-Based Deterministic Grounding Engine)",
         outputSummary:
           "Formulated diagnosis: 'Schema Argument Hallucination on Tool Invocation' (2 citations)",
       },
@@ -470,6 +476,8 @@ describe("Tool Schema Strictness - apply_ast_patch Blueprint", () => {
     ],
   },
   {
+    isSampleFixture: true,
+    fixtureDisclaimer: "Illustrative sample trace for forensic testing and demonstration.",
     id: "trace-browserbase-003",
     agentName: "WebScraperNavAgent",
     failureCategory: "unhandled_tool_error",
@@ -522,12 +530,12 @@ describe("Tool Schema Strictness - apply_ast_patch Blueprint", () => {
     ],
     hypothesis: {
       title: "Browserbase Headless Frame Detachment Failure",
-      model: "Google Gemma 2 (Deterministic Grounding Mode)",
+      model: "Rule-Based Deterministic Grounding Engine",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 4,
       fallbackReason:
-        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
+        "Deterministic Forensic Engine Active — Rule-based analysis completed successfully without LLM inference.",
       explanation:
         "The agent attempted to click element '#checkout-frame' via Browserbase in evt_bb_03, but the cross-origin iframe re-rendered and detached mid-execution, causing unhandled timeout in evt_bb_04.",
       groundedEventIds: ["evt_bb_03", "evt_bb_04"],
@@ -610,6 +618,8 @@ describe("WebScraperNavAgent - Browserbase Frame Guard Safeguard", () => {
     ],
   },
   {
+    isSampleFixture: true,
+    fixtureDisclaimer: "Illustrative sample trace for forensic testing and demonstration.",
     id: "trace-tiger-005",
     agentName: "ClusterIncidentAgent",
     failureCategory: "unhandled_tool_error",
@@ -662,12 +672,12 @@ describe("WebScraperNavAgent - Browserbase Frame Guard Safeguard", () => {
     ],
     hypothesis: {
       title: "Historical Cluster Recurrence: Upstream 500 Failure",
-      model: "Google Gemma 2 (Deterministic Grounding Mode)",
+      model: "Rule-Based Deterministic Grounding Engine",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 3,
       fallbackReason:
-        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
+        "Deterministic Forensic Engine Active — Rule-based analysis completed successfully without LLM inference.",
       explanation:
         "Tiger Data clustered this trace into #CLUSTER-UPSTREAM-500-CRASH with 98.4% cosine similarity to 14 previous failures at evt_tg_03, tripping the proactive circuit breaker at evt_tg_04.",
       groundedEventIds: ["evt_tg_03", "evt_tg_04"],

@@ -68,6 +68,7 @@ export interface TraceHypothesis {
   fallbackReason?: string;
   explanation: string;
   groundedEventIds: string[];
+  systemDetectedAnomalyIds?: string[];
   confidence: number;
   validationStatus: "grounded" | "unverified" | "hallucination_flagged";
   suggestedFix: string;
@@ -81,6 +82,38 @@ export interface TraceHypothesis {
     cachedPromptTokens?: number | null;
   } | null;
   requestId?: string;
+}
+
+export type PartnerStatus =
+  | "connected"
+  | "executed"
+  | "not_configured"
+  | "unavailable"
+  | "failed"
+  | "simulated";
+
+export type TelemetrySource = "live" | "fixture";
+
+export interface PartnerDiagnosticCard {
+  provider: "tabpfn" | "tiger_data" | "temporal" | "browserbase" | "backboard" | "auth0" | "sentry";
+  title: string;
+  status: PartnerStatus;
+  source: TelemetrySource;
+  metricLabel?: string;
+  metricValue?: string | number;
+  ciRange?: [number, number];
+  executionId?: string;
+  timestamp?: string;
+  details: string;
+  error?: string;
+}
+
+export interface PartnerDiagnosticsResult {
+  source: TelemetrySource;
+  tabpfn: PartnerDiagnosticCard;
+  tigerData: PartnerDiagnosticCard;
+  temporal: PartnerDiagnosticCard;
+  browserbase: PartnerDiagnosticCard;
 }
 
 export interface TraceRun {
@@ -106,6 +139,9 @@ export interface TraceRun {
   mastraSteps?: MastraWorkflowStepInfo[];
   workflowEngine?: string;
   ultramarineInvestigation?: UltramarineInvestigationResult;
+  isSampleFixture?: boolean;
+  fixtureDisclaimer?: string;
+  partnerDiagnostics?: PartnerDiagnosticsResult;
 }
 
 export type AgentTrace = TraceRun;
@@ -118,13 +154,13 @@ export interface MastraWorkflowOutput {
   workflowEngine: string;
   steps: MastraWorkflowStepInfo[];
   hypothesis: TraceHypothesis;
-  generatedTestCode: string;
-  deterministicFallbackUsed: boolean;
-  provider?: string;
-  model?: string;
-  executionMode?: string;
-  evidenceValidation?: EvidenceValidationInfo;
-  cost?: TraceHypothesisCost;
-  requestId?: string;
-  ultramarineInvestigation?: UltramarineInvestigationResult;
+  testCode?: string;
+  timeline?: {
+    traceId: string;
+    agentName: string;
+    events: TraceEvent[];
+    totalDurationMs: number;
+    primaryFailureCategory: string;
+    anomalies: unknown[];
+  };
 }
