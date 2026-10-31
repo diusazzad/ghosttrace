@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isMongoConfigured } from "@/lib/db/mongodb";
+import { isAuth0Configured } from "@/lib/auth/auth0";
 
 export async function GET() {
   const hasBackboard = Boolean(
@@ -40,6 +41,10 @@ export async function GET() {
       storage: {
         engine: hasMongo ? "mongodb_atlas" : "in_memory_fallback",
         database: process.env.MONGODB_DB_NAME || "ghosttrace_forensics",
+      },
+      identity: {
+        provider: "auth0",
+        status: isAuth0Configured() ? "configured" : "not_configured",
       },
     },
   });

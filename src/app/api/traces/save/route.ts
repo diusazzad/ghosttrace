@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { saveInvestigation, StoredInvestigation } from "@/lib/db/traceRepository";
+import { getServerSession, isAuth0Configured } from "@/lib/auth/auth0";
 
 export async function POST(req: NextRequest) {
   try {
+    const isProd = process.env.NODE_ENV === "production";
+    const auth0Ready = isAuth0Configured();
+
+    // Requirement 2: If Auth0 is not configured in production, return HTTP 503 with AUTH_NOT_CONFIGURED
+    if (isProd && !auth0Ready) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "AUTH_NOT_CONFIGURED",
+          error: "AUTH_NOT_CONFIGURED",
+          message: "Authentication service is not configured in production environment",
+        },
+        { status: 503 }
+      );
+    }
+
+    const session = await getServerSession(req);
+
+    // Requirement 1 & 3: Require a verified Auth0 session for saving investigations.
+    // Anonymous visitors are strictly denied saving investigations to server-side storage.
+    if (!session || !session.userId) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "UNAUTHORIZED",
+          error: "Unauthorized: authenticated session required to save investigations",
+        },
+        { status: 401 }
+      );
+    }
+
+    // Always bind strictly to verified session identity; never accept client-supplied ownerId
+    const ownerId = session.userId;
+
     const body = await req.json();
 
     if (!body.traceId || !body.agentName) {
@@ -12,7 +47,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Ignore any client-supplied body.ownerId
     const investigation: StoredInvestigation = {
+      ownerId,
       traceId: body.traceId,
       agentName: body.agentName,
       status: body.status || "failed",

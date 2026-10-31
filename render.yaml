@@ -20,11 +20,21 @@ services:
         sync: false
       - key: GEMMA_MODEL_NAME
         value: google/gemma-2-9b-it
-      - key: SENTRY_DSN
-        sync: false
       - key: NEXT_PUBLIC_SENTRY_DSN
         sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
       - key: MONGODB_URI
         sync: false
       - key: MONGODB_DB_NAME
         value: ghosttrace_production
+      - key: AUTH0_DOMAIN
+        sync: false
+      - key: AUTH0_CLIENT_ID
+        sync: false
+      - key: AUTH0_CLIENT_SECRET
+        sync: false
+      - key: AUTH0_SECRET
+        sync: false
+      - key: APP_BASE_URL
+        sync: false
