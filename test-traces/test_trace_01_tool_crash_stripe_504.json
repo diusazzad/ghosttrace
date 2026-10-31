@@ -1,0 +1,112 @@
+{
+  "id": "trace-custom-stripe-504",
+  "agentName": "BillingSettlementAgent",
+  "failureCategory": "unhandled_tool_error",
+  "failureDescription": "Agent crashed due to unhandled UpstreamAPIError HTTP 504 Gateway Timeout in stripe_process_refund without retry policy.",
+  "startedAt": "2026-10-31T18:30:00.000Z",
+  "totalDurationMs": 3850,
+  "totalTokens": 1420,
+  "estimatedCostUsd": 0.0042,
+  "status": "failed",
+  "isSampleFixture": false,
+  "events": [
+    {
+      "id": "evt_101",
+      "name": "receive_refund_request",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 25,
+      "status": "success",
+      "input": {
+        "refundId": "ref_98124",
+        "customerId": "cus_88192",
+        "amountCents": 12500
+      },
+      "output": {
+        "validated": true,
+        "queuePosition": 1
+      }
+    },
+    {
+      "id": "evt_102",
+      "name": "llm_evaluate_refund_eligibility",
+      "type": "llm",
+      "startTimeMs": 30,
+      "durationMs": 650,
+      "status": "success",
+      "tokens": {
+        "prompt": 850,
+        "completion": 150,
+        "total": 1000
+      },
+      "input": {
+        "customerTenureMonths": 24,
+        "disputesCount": 0,
+        "requestedAmount": 125
+      },
+      "output": {
+        "decision": "approve",
+        "reason": "Trusted account in good standing"
+      }
+    },
+    {
+      "id": "evt_103",
+      "name": "query_account_ledger",
+      "type": "tool",
+      "startTimeMs": 690,
+      "durationMs": 140,
+      "status": "success",
+      "input": {
+        "customerId": "cus_88192"
+      },
+      "output": {
+        "balanceUsd": 340.5,
+        "currency": "USD"
+      }
+    },
+    {
+      "id": "evt_104",
+      "name": "stripe_process_refund",
+      "type": "tool",
+      "startTimeMs": 840,
+      "durationMs": 2980,
+      "status": "error",
+      "error": "UpstreamAPIError: HTTP 504 Gateway Timeout from api.stripe.com/v1/refunds (Host connection timed out after 3000ms)",
+      "isCausalAnomaly": true,
+      "input": {
+        "charge": "ch_3N824",
+        "amount": 12500,
+        "reason": "requested_by_customer"
+      }
+    },
+    {
+      "id": "evt_105",
+      "name": "unhandled_rejection_exit",
+      "type": "error",
+      "startTimeMs": 3825,
+      "durationMs": 25,
+      "status": "error",
+      "error": "FatalRuntimeError: UnhandledPromiseRejection in agent step execution without fallback handler",
+      "isCausalAnomaly": true
+    }
+  ],
+  "hypothesis": {
+    "title": "Unhandled Tool Error: stripe_process_refund 504 Gateway Timeout",
+    "model": "Rule-Based Deterministic Grounding Engine",
+    "provider": "deterministic_rules",
+    "executionMode": "deterministic_fallback",
+    "latencyMs": 5,
+    "explanation": "Tool stripe_process_refund experienced a 504 Gateway Timeout at evt_104 after 2980ms. The missing try/catch and absence of backoff retry caused unhandled rejection propagation to evt_105, crashing the worker agent process.",
+    "groundedEventIds": [
+      "evt_104",
+      "evt_105"
+    ],
+    "confidence": 0.96,
+    "validationStatus": "grounded",
+    "suggestedFix": "Implement an exponential backoff jitter retry policy around stripe_process_refund and enqueue a dead-letter event upon 504 timeout rather than aborting process.",
+    "uncertaintyWarnings": [
+      "Deterministic verification completed successfully."
+    ]
+  },
+  "generatedTestCode": "// Vitest Forensic Safeguard\nimport { describe, it, expect, vi } from 'vitest';\n\ndescribe('BillingSettlementAgent - 504 Timeout Safeguard', () => {\n  it('gracefully handles 504 Gateway Timeout in stripe_process_refund without crashing process', async () => {\n    const mockStripe = vi.fn().mockRejectedValue(new Error('HTTP 504 Gateway Timeout'));\n    let errorCaught = false;\n    try {\n      await mockStripe();\n    } catch (err) {\n      errorCaught = true;\n    }\n    expect(errorCaught).toBe(true);\n  });\n});"
+}

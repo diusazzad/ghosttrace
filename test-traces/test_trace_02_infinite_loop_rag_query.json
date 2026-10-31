@@ -1,0 +1,123 @@
+{
+  "id": "trace-custom-rag-loop-002",
+  "agentName": "CustomerSupportRAGAgent",
+  "failureCategory": "infinite_loop",
+  "failureDescription": "Agent entered an infinite rewrite loop re-querying vector knowledge base 3 times with zero similarity gain.",
+  "startedAt": "2026-10-31T19:00:00.000Z",
+  "totalDurationMs": 4620,
+  "totalTokens": 3840,
+  "estimatedCostUsd": 0.0115,
+  "status": "failed",
+  "isSampleFixture": false,
+  "events": [
+    {
+      "id": "evt_201",
+      "name": "user_inquiry_received",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 10,
+      "status": "success",
+      "input": {
+        "query": "Where is my tracking number for order #8841?"
+      }
+    },
+    {
+      "id": "evt_202",
+      "name": "query_vector_store_attempt_1",
+      "type": "tool",
+      "startTimeMs": 20,
+      "durationMs": 420,
+      "status": "warning",
+      "output": {
+        "matchCount": 0,
+        "topScore": 0.41
+      },
+      "isCausalAnomaly": false
+    },
+    {
+      "id": "evt_203",
+      "name": "llm_rewrite_query_attempt_1",
+      "type": "llm",
+      "startTimeMs": 450,
+      "durationMs": 700,
+      "status": "success",
+      "tokens": {
+        "prompt": 620,
+        "completion": 180,
+        "total": 800
+      },
+      "output": {
+        "reformulatedQuery": "order #8841 package tracking status"
+      }
+    },
+    {
+      "id": "evt_204",
+      "name": "query_vector_store_attempt_2",
+      "type": "tool",
+      "startTimeMs": 1160,
+      "durationMs": 410,
+      "status": "warning",
+      "output": {
+        "matchCount": 0,
+        "topScore": 0.42
+      },
+      "isCausalAnomaly": true
+    },
+    {
+      "id": "evt_205",
+      "name": "llm_rewrite_query_attempt_2",
+      "type": "llm",
+      "startTimeMs": 1580,
+      "durationMs": 710,
+      "status": "success",
+      "tokens": {
+        "prompt": 780,
+        "completion": 200,
+        "total": 980
+      },
+      "output": {
+        "reformulatedQuery": "shipping carrier tracking number order 8841"
+      }
+    },
+    {
+      "id": "evt_206",
+      "name": "query_vector_store_attempt_3",
+      "type": "tool",
+      "startTimeMs": 2300,
+      "durationMs": 430,
+      "status": "warning",
+      "output": {
+        "matchCount": 0,
+        "topScore": 0.4
+      },
+      "isCausalAnomaly": true
+    },
+    {
+      "id": "evt_207",
+      "name": "loop_threshold_exhausted",
+      "type": "error",
+      "startTimeMs": 4580,
+      "durationMs": 40,
+      "status": "error",
+      "error": "InfiniteLoopDetected: Max iteration budget (3 attempts) exceeded without finding matching document embeddings",
+      "isCausalAnomaly": true
+    }
+  ],
+  "hypothesis": {
+    "title": "Infinite Loop: Repetitive Vector Re-ranking Stall",
+    "model": "Rule-Based Deterministic Grounding Engine",
+    "provider": "deterministic_rules",
+    "executionMode": "deterministic_fallback",
+    "latencyMs": 4,
+    "explanation": "CustomerSupportRAGAgent called vector query tool repeatedly across evt_202, evt_204, and evt_206 without score convergence. Missing convergence circuit breaker caused execution abortion at evt_207.",
+    "groundedEventIds": [
+      "evt_204",
+      "evt_206",
+      "evt_207"
+    ],
+    "confidence": 0.94,
+    "validationStatus": "grounded",
+    "suggestedFix": "Enforce max retry count of 2 with immediate escalation to fallback human agent when vector similarity stays below 0.60."
+  },
+  "generatedTestCode": "// Vitest Loop Breaker Test\nimport { describe, it, expect } from 'vitest';\n\ndescribe('CustomerSupportRAGAgent - Loop Protection', () => {\n  it('aborts query rewriting after 2 unsuccessful attempts and triggers human escalation', () => {\n    const attempts = [0.41, 0.42, 0.40];\n    const maxRetries = 2;\n    const shouldEscalate = attempts.length > maxRetries;\n    expect(shouldEscalate).toBe(true);\n  });\n});"
+}

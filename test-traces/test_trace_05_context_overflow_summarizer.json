@@ -1,0 +1,79 @@
+{
+  "id": "trace-custom-context-overflow-005",
+  "agentName": "LegalContractSummarizer",
+  "failureCategory": "context_overflow",
+  "failureDescription": "Document summarization failed when ingested multi-file legal brief exceeded model context window (134,200 tokens).",
+  "startedAt": "2026-10-31T20:45:00.000Z",
+  "totalDurationMs": 1540,
+  "totalTokens": 134200,
+  "estimatedCostUsd": 0.1342,
+  "status": "failed",
+  "isSampleFixture": false,
+  "events": [
+    {
+      "id": "evt_501",
+      "name": "load_legal_brief_pdf",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 80,
+      "status": "success",
+      "output": {
+        "pagesCount": 185,
+        "rawBytes": 1420580
+      }
+    },
+    {
+      "id": "evt_502",
+      "name": "extract_document_text",
+      "type": "tool",
+      "startTimeMs": 90,
+      "durationMs": 350,
+      "status": "success",
+      "output": {
+        "characterCount": 536800,
+        "tokenEstimate": 134200
+      }
+    },
+    {
+      "id": "evt_503",
+      "name": "llm_generate_executive_summary",
+      "type": "llm",
+      "startTimeMs": 450,
+      "durationMs": 1050,
+      "status": "error",
+      "tokens": {
+        "prompt": 134200,
+        "completion": 0,
+        "total": 134200
+      },
+      "error": "ContextWindowExceededError: Maximum prompt context of 131,072 tokens exceeded. Ingested prompt tokens: 134,200. Request rejected with HTTP 400 Bad Request.",
+      "isCausalAnomaly": true
+    },
+    {
+      "id": "evt_504",
+      "name": "pipeline_aborted_oversized_payload",
+      "type": "error",
+      "startTimeMs": 1510,
+      "durationMs": 30,
+      "status": "error",
+      "error": "FatalPayloadError: Context window hard limit encountered without map-reduce chunking fallback",
+      "isCausalAnomaly": true
+    }
+  ],
+  "hypothesis": {
+    "title": "Context Window Overflow: 134,200 Tokens Ingested",
+    "model": "Rule-Based Deterministic Grounding Engine",
+    "provider": "deterministic_rules",
+    "executionMode": "deterministic_fallback",
+    "latencyMs": 3,
+    "explanation": "At evt_503, the agent sent an unchunked 185-page document (134,200 tokens) in a single LLM request, blowing through the 131,072 model limit and triggering HTTP 400.",
+    "groundedEventIds": [
+      "evt_503",
+      "evt_504"
+    ],
+    "confidence": 0.99,
+    "validationStatus": "grounded",
+    "suggestedFix": "Implement map-reduce hierarchical chunking (sliding window of 8,000 tokens) before calling LLM summarizer."
+  },
+  "generatedTestCode": "// Vitest Context Window Chunking Safeguard\nimport { describe, it, expect } from 'vitest';\n\ndescribe('LegalContractSummarizer - Chunking Safeguard', () => {\n  it('splits 134k token payload into chunks smaller than 8000 tokens', () => {\n    const totalTokens = 134200;\n    const chunkSize = 8000;\n    const chunks = Math.ceil(totalTokens / chunkSize);\n    expect(chunks).toBe(17);\n    expect(chunkSize).toBeLessThan(131072);\n  });\n});"
+}
