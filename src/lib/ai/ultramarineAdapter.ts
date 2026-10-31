@@ -286,7 +286,7 @@ export class UltramarineAdapter {
   private client?: OpenAI;
 
   constructor(options: UltramarineAdapterOptions = {}) {
-    this.apiKey = options.apiKey ?? process.env.PAPERINSTRUMENTS_API_KEY;
+    this.apiKey = options.apiKey ?? process.env.PAPERINSTRUMENTS_API_KEY ?? process.env.ULTRAMARINE_API_KEY;
     this.baseURL =
       options.baseURL ??
       process.env.PAPERINSTRUMENTS_BASE_URL ??
