@@ -347,31 +347,52 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {currentDisplay.groundedEventIds.map((eventId: string) => {
-              const isSelected = selectedEventId === eventId;
-              return (
-                <button
-                  key={eventId}
-                  onClick={() => onSelectEvent(isSelected ? null : eventId)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
-                    isSelected
-                      ? isUltramarineProvider
-                        ? "bg-cyan-600 text-white font-bold shadow-lg shadow-cyan-600/30 scale-105"
-                        : "bg-purple-600 text-white font-bold shadow-lg shadow-purple-600/30 scale-105"
-                      : isUltramarineProvider
-                      ? "bg-cyan-950/30 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/40"
-                      : "bg-purple-950/30 text-purple-300 border border-purple-500/30 hover:bg-purple-900/40"
-                  }`}
-                >
-                  <Sparkles
-                    className={`h-3 w-3 ${
-                      isUltramarineProvider ? "text-cyan-400" : "text-purple-400"
+            {(() => {
+              const rawCitations =
+                currentDisplay.groundedEventIds && currentDisplay.groundedEventIds.length > 0
+                  ? currentDisplay.groundedEventIds
+                  : (currentDisplay as any)?.citations && (currentDisplay as any).citations.length > 0
+                  ? (currentDisplay as any).citations
+                  : (currentDisplay as any)?.causalEventIds && (currentDisplay as any).causalEventIds.length > 0
+                  ? (currentDisplay as any).causalEventIds
+                  : trace.events
+                      .filter((e) => e.isCausalAnomaly || e.status === "error")
+                      .map((e) => e.id);
+
+              if (!rawCitations || rawCitations.length === 0) {
+                return (
+                  <span className="text-xs text-gray-500 font-mono italic">
+                    No causal anomaly events flagged
+                  </span>
+                );
+              }
+
+              return rawCitations.map((eventId: string) => {
+                const isSelected = selectedEventId === eventId;
+                return (
+                  <button
+                    key={eventId}
+                    onClick={() => onSelectEvent(isSelected ? null : eventId)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
+                      isSelected
+                        ? isUltramarineProvider
+                          ? "bg-cyan-600 text-white font-bold shadow-lg shadow-cyan-600/30 scale-105"
+                          : "bg-purple-600 text-white font-bold shadow-lg shadow-purple-600/30 scale-105"
+                        : isUltramarineProvider
+                        ? "bg-cyan-950/30 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/40"
+                        : "bg-purple-950/30 text-purple-300 border border-purple-500/30 hover:bg-purple-900/40"
                     }`}
-                  />
-                  <span>#{eventId}</span>
-                </button>
-              );
-            })}
+                  >
+                    <Sparkles
+                      className={`h-3 w-3 ${
+                        isUltramarineProvider ? "text-cyan-400" : "text-purple-400"
+                      }`}
+                    />
+                    <span>#{eventId}</span>
+                  </button>
+                );
+              });
+            })()}
           </div>
         </div>
 

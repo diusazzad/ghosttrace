@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Trace Dropdown */}
         <select
           value={activeTrace.id}
-          aria-label="Select forensic sample trace"
+          aria-label="Select agent trace for forensic analysis"
           onChange={(e) => {
             const selected = traces.find((t) => t.id === e.target.value);
             if (selected) onSelectTrace(selected);
@@ -137,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Auth0 Authentication State Badge */}
-        {authState?.isConfigured && (
+        {authState?.isConfigured ? (
           <div className="flex items-center gap-2 pl-2 border-l border-gray-800">
             {authState.isAuthenticated && authState.user ? (
               <div className="flex items-center gap-2">
@@ -167,6 +167,23 @@ export const Header: React.FC<HeaderProps> = ({
                 <span>Log in</span>
               </a>
             )}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 pl-2 border-l border-gray-800">
+            <div
+              className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-gray-800/60 text-gray-400 border border-gray-700/60"
+              title="Auth0 Authentication (Universal Login Ready)"
+            >
+              <Shield className="h-3.5 w-3.5 text-purple-400" />
+              <span>Auth0: Guest</span>
+            </div>
+            <a
+              href="/auth/login"
+              className="text-[11px] text-purple-400 hover:text-purple-300 transition font-medium"
+              title="Authenticate with Auth0"
+            >
+              Log in
+            </a>
           </div>
         )}
       </div>
