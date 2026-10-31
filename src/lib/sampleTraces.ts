@@ -8,9 +8,9 @@ export const SAMPLE_TRACES: TraceRun[] = [
     failureDescription:
       "Agent crashed due to unhandled UpstreamAPIError HTTP 500 in call_stripe_settlement without graceful fallback.",
     startedAt: "2026-10-30T10:40:00.000Z",
-    totalDurationMs: 785,
-    totalTokens: 0,
-    estimatedCostUsd: 0.0,
+    totalDurationMs: 1165,
+    totalTokens: 640,
+    estimatedCostUsd: 0.0019,
     status: "failed",
     events: [
       {
@@ -24,10 +24,21 @@ export const SAMPLE_TRACES: TraceRun[] = [
         output: { status: "received", chargeId: "ch_98242" },
       },
       {
+        id: "evt_301b",
+        name: "llm_decide_settlement_action",
+        type: "llm",
+        startTimeMs: 16,
+        durationMs: 380,
+        status: "success",
+        tokens: { prompt: 520, completion: 120, total: 640 },
+        input: { chargeId: "ch_98242", riskScore: 0.12 },
+        output: { action: "call_stripe_settlement", currency: "USD", amountCents: 4500 },
+      },
+      {
         id: "evt_302",
         name: "call_stripe_settlement",
         type: "tool",
-        startTimeMs: 20,
+        startTimeMs: 400,
         durationMs: 750,
         status: "error",
         error:
@@ -38,8 +49,8 @@ export const SAMPLE_TRACES: TraceRun[] = [
         id: "evt_303",
         name: "unhandled_process_exit",
         type: "error",
-        startTimeMs: 780,
-        durationMs: 5,
+        startTimeMs: 1155,
+        durationMs: 10,
         status: "error",
         error:
           "FatalCrash: Process terminated due to unhandled promise rejection in call_stripe_settlement",
@@ -76,17 +87,32 @@ export const SAMPLE_TRACES: TraceRun[] = [
 // Target Agent: PaymentWebhookAgent
 // Source Trace: #trace-tool-crash-004
 // Failure Mode: unhandled_tool_error
-// NOTE: Review and adapt imports to your test environment before execution.
+// Generated with: Vitest Forensic Test Synthesizer
 
 import { describe, it, expect, vi } from "vitest";
 
-describe("PaymentWebhookAgent - Regression Blueprint", () => {
-  it("should handle error gracefully in call_stripe_settlement without crash", async () => {
-    // Simulated upstream tool failure
-    const mockTool = vi.fn().mockRejectedValue(new Error("UpstreamAPIError: HTTP 500"));
+describe("PaymentWebhookAgent - Forensic Regression Safeguard", () => {
+  it("catches 500 error from call_stripe_settlement without crashing the agent process", async () => {
+    // Arrange: Simulate upstream HTTP 500 from Payment Gateway
+    const mockTool = vi.fn().mockRejectedValue(new Error("UpstreamAPIError: HTTP 500 Internal Server Error"));
     
-    // Test assertion placeholder
-    expect(mockTool).toBeDefined();
+    // Act: Invoke tool handler within defensive supervisor wrapper
+    const result = await (async (toolFn) => {
+      try {
+        await toolFn();
+        return { status: "success" };
+      } catch (err: any) {
+        if (err.message.includes("500")) {
+          return { status: "fallback_triggered", errorHandled: true, retryQueued: true };
+        }
+        throw err;
+      }
+    })(mockTool);
+
+    // Assert: Tool was invoked, error was safely caught and degraded gracefully
+    expect(mockTool).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe("fallback_triggered");
+    expect(result.errorHandled).toBe(true);
   });
 });`,
     mastraSteps: [
@@ -95,15 +121,15 @@ describe("PaymentWebhookAgent - Regression Blueprint", () => {
         name: "1. Ingest & Normalize Timeline",
         status: "success",
         durationMs: 2,
-        inputSummary: "Raw input trace: #trace-tool-crash-004 (3 events)",
-        outputSummary: "Normalized chronological timeline spanning 785ms",
+        inputSummary: "Raw input trace: #trace-tool-crash-004 (4 events)",
+        outputSummary: "Normalized chronological timeline spanning 1165ms",
       },
       {
         stepId: "step2_detectAnomalies",
         name: "2. Deterministic Anomaly Detection",
         status: "success",
         durationMs: 3,
-        inputSummary: "Scanned 3 events against 5 heuristic failure patterns",
+        inputSummary: "Scanned 4 events against 5 heuristic failure patterns",
         outputSummary: "Found 2 anomaly finding(s). Category: 'unhandled_tool_error'",
       },
       {
@@ -122,107 +148,101 @@ describe("PaymentWebhookAgent - Regression Blueprint", () => {
         status: "success",
         durationMs: 2,
         inputSummary: "Cross-checked event references and synthesized Vitest regression blueprint",
-        outputSummary: "Generated regression test blueprint (18 lines of code)",
+        outputSummary: "Generated regression test blueprint (24 lines of code)",
       },
     ],
   },
   {
-    id: "run-inf-loop-8491",
-    agentName: "SupportRefundAgent",
+    id: "trace-loop-001",
+    agentName: "OrderFulfillmentAgent",
     failureCategory: "infinite_loop",
     failureDescription:
-      "Agent trapped in repetitive tool query loop after receiving empty order record.",
-    startedAt: "2026-10-30T10:45:12Z",
+      "Cyclic invocation loop detected: Tool 'query_order_db' invoked 3 times consecutively with identical arguments without forward state progress.",
+    startedAt: "2026-10-30T14:22:00.000Z",
     totalDurationMs: 14250,
-    totalTokens: 12480,
-    estimatedCostUsd: 0.042,
+    totalTokens: 12450,
+    estimatedCostUsd: 0.048,
     status: "failed",
     events: [
       {
         id: "evt_001",
-        name: "agent_init_intent",
-        type: "state",
+        name: "plan_order_resolution",
+        type: "llm",
         startTimeMs: 0,
-        durationMs: 45,
+        durationMs: 1200,
         status: "success",
-        input: { userPrompt: "Please refund my order #ORD-98211" },
-        output: { state: "initialized", intent: "refund_request" },
+        tokens: { prompt: 1200, completion: 240, total: 1440 },
+        input: { orderId: "ORD-9912", issue: "delivery_delayed" },
       },
       {
         id: "evt_002",
-        name: "llm_plan_steps",
-        type: "llm",
-        startTimeMs: 50,
-        durationMs: 1120,
+        name: "route_fulfillment_strategy",
+        type: "state",
+        startTimeMs: 1250,
+        durationMs: 50,
         status: "success",
-        input: { prompt: "System: You are SupportRefundAgent. Step 1: Query order DB..." },
-        output: { tool_call: "query_order_db", arguments: { order_id: "ORD-98211" } },
-        tokens: { prompt: 412, completion: 86, total: 498 },
+        output: { nextStep: "query_order_db" },
       },
       {
         id: "evt_003",
         name: "query_order_db",
         type: "tool",
-        startTimeMs: 1200,
-        durationMs: 480,
-        status: "warning",
-        input: { order_id: "ORD-98211" },
-        output: { result: null, code: 404, message: "Order not found in active cache" },
+        startTimeMs: 1320,
+        durationMs: 350,
+        status: "error",
+        input: { orderId: "ORD-9912" },
+        error: "404 Not Found: Order record missing from replica shards",
         isCausalAnomaly: true,
       },
       {
         id: "evt_004",
-        name: "llm_retry_decision_1",
+        name: "llm_retry_decision",
         type: "llm",
-        startTimeMs: 1720,
-        durationMs: 1450,
+        startTimeMs: 1700,
+        durationMs: 1100,
         status: "success",
-        input: { prompt: "Tool returned 404. What is your next action?" },
-        output: { tool_call: "query_order_db", arguments: { order_id: "ORD-98211" } },
-        tokens: { prompt: 620, completion: 74, total: 694 },
+        tokens: { prompt: 1800, completion: 210, total: 2010 },
       },
       {
         id: "evt_005",
-        name: "query_order_db_retry_1",
+        name: "query_order_db",
         type: "tool",
-        startTimeMs: 3200,
-        durationMs: 420,
-        status: "warning",
-        input: { order_id: "ORD-98211" },
-        output: { result: null, code: 404, message: "Order not found in active cache" },
+        startTimeMs: 2850,
+        durationMs: 340,
+        status: "error",
+        input: { orderId: "ORD-9912" },
+        error: "404 Not Found: Order record missing from replica shards",
         isCausalAnomaly: true,
       },
       {
         id: "evt_006",
-        name: "llm_retry_decision_2",
+        name: "llm_retry_decision",
         type: "llm",
-        startTimeMs: 3650,
-        durationMs: 1380,
+        startTimeMs: 3220,
+        durationMs: 1050,
         status: "success",
-        input: { prompt: "Tool returned 404 again. Next action?" },
-        output: { tool_call: "query_order_db", arguments: { order_id: "ORD-98211" } },
-        tokens: { prompt: 810, completion: 65, total: 875 },
+        tokens: { prompt: 2400, completion: 190, total: 2590 },
       },
       {
         id: "evt_007",
-        name: "query_order_db_retry_2",
+        name: "query_order_db",
         type: "tool",
-        startTimeMs: 5050,
-        durationMs: 390,
-        status: "warning",
-        input: { order_id: "ORD-98211" },
-        output: { result: null, code: 404, message: "Order not found in active cache" },
+        startTimeMs: 4300,
+        durationMs: 360,
+        status: "error",
+        input: { orderId: "ORD-9912" },
+        error: "404 Not Found: Order record missing from replica shards",
         isCausalAnomaly: true,
       },
       {
         id: "evt_008",
-        name: "loop_circuit_breaker_trip",
+        name: "circuit_breaker_cutoff",
         type: "error",
-        startTimeMs: 5460,
-        durationMs: 15,
+        startTimeMs: 4680,
+        durationMs: 20,
         status: "error",
         error:
-          "CircuitBreakerError: Identical tool 'query_order_db' invoked 3 times with identical parameters without state mutation.",
+          "CircuitBreakerError: Identical tool 'query_order_db' invoked 3 times without forward state mutation.",
         isCausalAnomaly: true,
       },
     ],
@@ -253,23 +273,29 @@ describe("PaymentWebhookAgent - Regression Blueprint", () => {
       },
     },
     generatedTestCode: `// AUTO-GENERATED REGRESSION TEST BLUEPRINT BY GHOSTTRACE
-// Target Agent: SupportRefundAgent
-// Source Trace: #run-inf-loop-8491
+// Target Agent: OrderFulfillmentAgent
+// Source Trace: #trace-loop-001
 // Failure Mode: infinite_loop
 
 import { describe, it, expect, vi } from "vitest";
-import { SupportRefundAgent } from "@/agents/refund";
 
-describe("SupportRefundAgent - Circuit Breaker Regression Blueprint", () => {
-  it("should not enter repetitive loop when order is not found", async () => {
-    const mockOrderDb = vi.fn().mockResolvedValue({ code: 404, message: "Not found" });
-    const agent = new SupportRefundAgent({ queryOrderDb: mockOrderDb });
+describe("OrderFulfillmentAgent - Circuit Breaker Regression Blueprint", () => {
+  it("prevents unconstrained re-invocation of query_order_db beyond max retries", async () => {
+    let callCount = 0;
+    const mockTool = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount >= 2) {
+        throw new Error("LoopBreaker: Max consecutive retry attempts exceeded for query_order_db");
+      }
+      return { status: 404, notFound: true };
+    });
 
-    const result = await agent.process("Please refund my order #ORD-98211");
-    
-    // Ensure agent fails gracefully or asks clarification rather than looping
-    expect(mockOrderDb).toHaveBeenCalledTimes(1);
-    expect(result.status).toBe("needs_user_input");
+    await expect(async () => {
+      for (let i = 0; i < 4; i++) {
+        await mockTool();
+      }
+    }).rejects.toThrow(/LoopBreaker/);
+    expect(callCount).toBe(2);
   });
 });`,
     mastraSteps: [
@@ -277,8 +303,8 @@ describe("SupportRefundAgent - Circuit Breaker Regression Blueprint", () => {
         stepId: "step1_ingestAndNormalize",
         name: "1. Ingest & Normalize Timeline",
         status: "success",
-        durationMs: 3,
-        inputSummary: "Raw input trace: #run-inf-loop-8491 (8 events)",
+        durationMs: 2,
+        inputSummary: "Raw input trace: #trace-loop-001 (8 events)",
         outputSummary: "Normalized chronological timeline spanning 14250ms",
       },
       {
@@ -310,7 +336,7 @@ describe("SupportRefundAgent - Circuit Breaker Regression Blueprint", () => {
     ],
   },
   {
-    id: "run-param-halluc-3104",
+    id: "trace-arg-hallucination-002",
     agentName: "CodeRefactorAgent",
     failureCategory: "parameter_hallucination",
     failureDescription:
@@ -440,6 +466,283 @@ describe("Tool Schema Strictness - apply_ast_patch Blueprint", () => {
         durationMs: 2,
         inputSummary: "Cross-checked event references and synthesized Vitest regression blueprint",
         outputSummary: "Generated regression test blueprint (19 lines of code)",
+      },
+    ],
+  },
+  {
+    id: "trace-browserbase-003",
+    agentName: "WebScraperNavAgent",
+    failureCategory: "unhandled_tool_error",
+    failureDescription:
+      "Browserbase headless session crashed during DOM selector navigation: target iframe detached before evaluation.",
+    startedAt: "2026-10-31T11:05:00.000Z",
+    totalDurationMs: 4320,
+    totalTokens: 3890,
+    estimatedCostUsd: 0.015,
+    status: "failed",
+    events: [
+      {
+        id: "evt_bb_01",
+        name: "browserbase_create_session",
+        type: "tool",
+        startTimeMs: 0,
+        durationMs: 820,
+        status: "success",
+        output: { sessionId: "ssn_bb_99182", debuggerUrl: "wss://connect.browserbase.com/playwright" },
+      },
+      {
+        id: "evt_bb_02",
+        name: "llm_extract_dom_selectors",
+        type: "llm",
+        startTimeMs: 830,
+        durationMs: 950,
+        status: "success",
+        tokens: { prompt: 2100, completion: 320, total: 2420 },
+      },
+      {
+        id: "evt_bb_03",
+        name: "browserbase_click_element",
+        type: "tool",
+        startTimeMs: 1800,
+        durationMs: 2500,
+        status: "error",
+        error: "ExecutionTimeout: Frame with selector '#checkout-frame' detached during click action",
+        isCausalAnomaly: true,
+      },
+      {
+        id: "evt_bb_04",
+        name: "session_aborted",
+        type: "error",
+        startTimeMs: 4310,
+        durationMs: 10,
+        status: "error",
+        error: "FatalError: Navigation pipeline unrecoverable without iframe re-attachment handler",
+        isCausalAnomaly: true,
+      },
+    ],
+    hypothesis: {
+      title: "Browserbase Headless Frame Detachment Failure",
+      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      provider: "deterministic_rules",
+      executionMode: "deterministic_fallback",
+      latencyMs: 4,
+      fallbackReason:
+        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
+      explanation:
+        "The agent attempted to click element '#checkout-frame' via Browserbase in evt_bb_03, but the cross-origin iframe re-rendered and detached mid-execution, causing unhandled timeout in evt_bb_04.",
+      groundedEventIds: ["evt_bb_03", "evt_bb_04"],
+      confidence: 0.94,
+      validationStatus: "grounded",
+      suggestedFix:
+        "Wrap Browserbase element interactions in a waitForFrameNavigation guard or check frame.isDetached() before dispatching DOM events.",
+      evidenceValidation: {
+        eventReferenceValid: true,
+        causalClaimUnverified: false,
+        validEventIds: ["evt_bb_03", "evt_bb_04"],
+        hallucinatedEventIds: [],
+        humanReviewRequired: false,
+      },
+    },
+    generatedTestCode: `// AUTO-GENERATED REGRESSION TEST BLUEPRINT BY GHOSTTRACE
+// Target Agent: WebScraperNavAgent
+// Source Trace: #trace-browserbase-003
+// Failure Mode: unhandled_tool_error (Browserbase Frame Detachment)
+
+import { describe, it, expect, vi } from "vitest";
+
+describe("WebScraperNavAgent - Browserbase Frame Guard Safeguard", () => {
+  it("guards against detached iframe before clicking checkout element", async () => {
+    const mockPage = {
+      isClosed: vi.fn().mockReturnValue(false),
+      waitForSelector: vi.fn().mockResolvedValue(true),
+      click: vi.fn().mockRejectedValue(new Error("Target frame detached")),
+    };
+
+    const clickWithRetry = async (page: any, selector: string) => {
+      try {
+        await page.click(selector);
+      } catch (err: any) {
+        if (err.message.includes("detached")) {
+          return { status: "frame_reloaded", recovered: true };
+        }
+        throw err;
+      }
+    };
+
+    const res = await clickWithRetry(mockPage, "#checkout-frame");
+    expect(res.status).toBe("frame_reloaded");
+    expect(res.recovered).toBe(true);
+  });
+});`,
+    mastraSteps: [
+      {
+        stepId: "step1_ingestAndNormalize",
+        name: "1. Ingest & Normalize Timeline",
+        status: "success",
+        durationMs: 2,
+        inputSummary: "Raw input trace: #trace-browserbase-003 (4 events)",
+        outputSummary: "Normalized chronological timeline spanning 4320ms",
+      },
+      {
+        stepId: "step2_detectAnomalies",
+        name: "2. Deterministic Anomaly Detection",
+        status: "success",
+        durationMs: 3,
+        inputSummary: "Scanned 4 events against Browserbase DOM heuristics",
+        outputSummary: "Found 2 anomaly finding(s). Category: 'unhandled_tool_error'",
+      },
+      {
+        stepId: "step3_hypothesizeRootCause",
+        name: "3. Root Cause Investigation & Grounding",
+        status: "success",
+        durationMs: 4,
+        inputSummary: "Evaluated causal events via deterministic_rules (Google Gemma 2)",
+        outputSummary: "Formulated diagnosis: 'Browserbase Headless Frame Detachment Failure' (2 citations)",
+      },
+      {
+        stepId: "step4_verifyAndSynthesize",
+        name: "4. Grounding Verification & Test Synthesis",
+        status: "success",
+        durationMs: 2,
+        inputSummary: "Cross-checked event references and synthesized Vitest regression blueprint",
+        outputSummary: "Generated regression test blueprint (26 lines of code)",
+      },
+    ],
+  },
+  {
+    id: "trace-tiger-005",
+    agentName: "ClusterIncidentAgent",
+    failureCategory: "unhandled_tool_error",
+    failureDescription:
+      "Historical incident cluster match: Tiger Data identified high recurrence across 14 MongoDB Atlas traces.",
+    startedAt: "2026-10-31T12:00:00.000Z",
+    totalDurationMs: 2100,
+    totalTokens: 4200,
+    estimatedCostUsd: 0.016,
+    status: "failed",
+    events: [
+      {
+        id: "evt_tg_01",
+        name: "query_tiger_incident_graph",
+        type: "tool",
+        startTimeMs: 0,
+        durationMs: 410,
+        status: "success",
+        output: { clusterId: "CLUSTER-UPSTREAM-500-CRASH", similarity: 0.984 },
+      },
+      {
+        id: "evt_tg_02",
+        name: "llm_compare_causal_fingerprint",
+        type: "llm",
+        startTimeMs: 420,
+        durationMs: 890,
+        status: "success",
+        tokens: { prompt: 2400, completion: 380, total: 2780 },
+      },
+      {
+        id: "evt_tg_03",
+        name: "execute_settlement_retry",
+        type: "tool",
+        startTimeMs: 1320,
+        durationMs: 760,
+        status: "error",
+        error: "StripeGatewayTimeout: Repeated 500 error matching historical cluster pattern",
+        isCausalAnomaly: true,
+      },
+      {
+        id: "evt_tg_04",
+        name: "circuit_breaker_active",
+        type: "error",
+        startTimeMs: 2090,
+        durationMs: 10,
+        status: "error",
+        error: "TigerGuard: Incident aborted early due to 98% similarity to known toxic pattern",
+        isCausalAnomaly: true,
+      },
+    ],
+    hypothesis: {
+      title: "Historical Cluster Recurrence: Upstream 500 Failure",
+      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      provider: "deterministic_rules",
+      executionMode: "deterministic_fallback",
+      latencyMs: 3,
+      fallbackReason:
+        "Grounded Deterministic Engine Active — Evaluating causal telemetry via rule-verified Gemma 2 schema without nondeterministic drift.",
+      explanation:
+        "Tiger Data clustered this trace into #CLUSTER-UPSTREAM-500-CRASH with 98.4% cosine similarity to 14 previous failures at evt_tg_03, tripping the proactive circuit breaker at evt_tg_04.",
+      groundedEventIds: ["evt_tg_03", "evt_tg_04"],
+      confidence: 0.98,
+      validationStatus: "grounded",
+      suggestedFix:
+        "Deploy the verified Vitest regression test suite and enable automated mock fallback for payment settlement tools.",
+      evidenceValidation: {
+        eventReferenceValid: true,
+        causalClaimUnverified: false,
+        validEventIds: ["evt_tg_03", "evt_tg_04"],
+        hallucinatedEventIds: [],
+        humanReviewRequired: false,
+      },
+    },
+    generatedTestCode: `// AUTO-GENERATED REGRESSION TEST BLUEPRINT BY GHOSTTRACE
+// Target Agent: ClusterIncidentAgent
+// Source Trace: #trace-tiger-005
+// Failure Mode: unhandled_tool_error (Tiger Data Matched Cluster)
+
+import { describe, it, expect, vi } from "vitest";
+
+describe("ClusterIncidentAgent - Historical Graph Guard Safeguard", () => {
+  it("proactively intercepts settlement retry when Tiger Data cluster matches toxic pattern", async () => {
+    const mockClusterCheck = vi.fn().mockResolvedValue({
+      clusterId: "CLUSTER-UPSTREAM-500-CRASH",
+      similarityScore: 0.984,
+      toxicPatternDetected: true,
+    });
+
+    const executionGuard = async (checkFn: any) => {
+      const match = await checkFn();
+      if (match.toxicPatternDetected && match.similarityScore > 0.9) {
+        return { abortedProactively: true, reason: "matched_toxic_cluster" };
+      }
+      return { abortedProactively: false };
+    };
+
+    const result = await executionGuard(mockClusterCheck);
+    expect(result.abortedProactively).toBe(true);
+    expect(result.reason).toBe("matched_toxic_cluster");
+  });
+});`,
+    mastraSteps: [
+      {
+        stepId: "step1_ingestAndNormalize",
+        name: "1. Ingest & Normalize Timeline",
+        status: "success",
+        durationMs: 2,
+        inputSummary: "Raw input trace: #trace-tiger-005 (4 events)",
+        outputSummary: "Normalized chronological timeline spanning 2100ms",
+      },
+      {
+        stepId: "step2_detectAnomalies",
+        name: "2. Deterministic Anomaly Detection",
+        status: "success",
+        durationMs: 3,
+        inputSummary: "Scanned 4 events against Tiger Data pattern cluster embeddings",
+        outputSummary: "Found 2 anomaly finding(s). Category: 'unhandled_tool_error'",
+      },
+      {
+        stepId: "step3_hypothesizeRootCause",
+        name: "3. Root Cause Investigation & Grounding",
+        status: "success",
+        durationMs: 4,
+        inputSummary: "Evaluated causal events via deterministic_rules (Google Gemma 2)",
+        outputSummary: "Formulated diagnosis: 'Historical Cluster Recurrence: Upstream 500 Failure' (2 citations)",
+      },
+      {
+        stepId: "step4_verifyAndSynthesize",
+        name: "4. Grounding Verification & Test Synthesis",
+        status: "success",
+        durationMs: 2,
+        inputSummary: "Cross-checked event references and synthesized Vitest regression blueprint",
+        outputSummary: "Generated regression test blueprint (25 lines of code)",
       },
     ],
   },

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header, AuthStateDTO } from "@/components/layout/Header";
 import { TraceSummaryCards } from "@/components/forensics/TraceSummaryCards";
+import { PartnerDiagnosticsBar } from "@/components/forensics/PartnerDiagnosticsBar";
 import { MastraWorkflowStepper } from "@/components/forensics/MastraWorkflowStepper";
 import { WaterfallTimeline } from "@/components/forensics/WaterfallTimeline";
 import { EvidenceHypothesisCard } from "@/components/forensics/EvidenceHypothesisCard";
@@ -184,6 +185,9 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
               {/* Stat Metric Cards */}
               <TraceSummaryCards trace={activeTrace} />
 
+              {/* Partner Forensic Intelligence & Multi-Engine Telemetry */}
+              <PartnerDiagnosticsBar trace={activeTrace} />
+
               {/* Mastra 4-Step Forensic Workflow Stepper */}
               <MastraWorkflowStepper
                 steps={activeTrace.mastraSteps}
@@ -230,6 +234,8 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
                   to verified trace event IDs and timestamps to prevent reasoning hallucinations.
                 </p>
               </div>
+
+              <PartnerDiagnosticsBar trace={activeTrace} />
 
               <MastraWorkflowStepper
                 steps={activeTrace.mastraSteps}
