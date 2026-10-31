@@ -31,13 +31,18 @@ export interface SaveResult {
 
 /**
  * In-memory fallback repository for offline, testing, or air-gapped environments.
- * Partitions storage strictly by ownerId. Unscoped multi-tenant queries are forbidden.
+ * Partitions storage strictly by ownerId using collision-safe tuple encoding.
+ * Unscoped multi-tenant queries are forbidden.
  */
 class InMemoryTraceStore {
   private store: Map<string, StoredInvestigation> = new Map();
 
+  /**
+   * Collision-safe tuple encoding for composite map keys.
+   * Prevents delimiters in ownerId/traceId (such as colons) from collapsing distinct identity tuples.
+   */
   private makeKey(ownerId: string, traceId: string): string {
-    return `${ownerId.trim()}:${traceId.trim()}`;
+    return JSON.stringify([ownerId.trim(), traceId.trim()]);
   }
 
   save(data: StoredInvestigation): StoredInvestigation {

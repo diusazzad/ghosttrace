@@ -18,6 +18,22 @@ export interface MigrationPlan {
 }
 
 /**
+ * Filter to strictly identify documents lacking a valid string ownerId:
+ * - Missing ownerId field ($exists: false)
+ * - Explicit null ownerId
+ * - Non-string types ($not: { $type: "string" })
+ * - Empty string or whitespace-only string (/^\s*$/)
+ */
+export const UNOWNED_OR_INVALID_OWNER_FILTER = {
+  $or: [
+    { ownerId: { $exists: false } },
+    { ownerId: null },
+    { ownerId: { $not: { $type: "string" } } },
+    { ownerId: { $regex: /^\s*$/ } },
+  ],
+};
+
+/**
  * Safe, dry-run-first migration helper for GhostTrace MongoDB Atlas indexes.
  *
  * Defaults to `dryRun: true` to prevent any unintended index changes.
@@ -41,9 +57,7 @@ export async function migrateTraceIndexes(
       unique: Boolean(idx.unique),
     }));
 
-    unownedDocumentCount = await collection.countDocuments({
-      $or: [{ ownerId: { $exists: false } }, { ownerId: null }, { ownerId: "" }],
-    });
+    unownedDocumentCount = await collection.countDocuments(UNOWNED_OR_INVALID_OWNER_FILTER);
   } catch (err) {
     // If collection does not exist yet (NamespaceNotFound, code 26), start with empty indexes
     if (err instanceof MongoServerError && err.code === 26) {
@@ -74,7 +88,7 @@ export async function migrateTraceIndexes(
   if (unownedDocumentCount > 0) {
     status = "needs_owner_backfill";
     actions.push(
-      `Safety guard: ${unownedDocumentCount} legacy documents lack ownerId. Legacy unique index will NOT be dropped until documents are safely attributed.`
+      `Safety guard: ${unownedDocumentCount} legacy documents lack a valid string ownerId (missing, null, whitespace, or non-string). Legacy unique index will NOT be dropped until documents are safely attributed.`
     );
   } else if (legacyTraceIdIndex) {
     actions.push(`Safely drop legacy single-field unique index '${legacyTraceIdIndex.name}'`);

@@ -5,19 +5,39 @@ import { getServerSession, isAuth0Configured } from "@/lib/auth/auth0";
 
 export async function GET(req: NextRequest) {
   try {
+    const isProd = process.env.NODE_ENV === "production";
+    const auth0Ready = isAuth0Configured();
+
+    // Requirement 2: If Auth0 is not configured in production, return HTTP 503 with AUTH_NOT_CONFIGURED
+    if (isProd && !auth0Ready) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "AUTH_NOT_CONFIGURED",
+          error: "AUTH_NOT_CONFIGURED",
+          message: "Authentication service is not configured in production environment",
+        },
+        { status: 503 }
+      );
+    }
+
     const session = await getServerSession(req);
 
-    // Requirement 2: Return 401 for unauthenticated history access when Auth0 is configured
-    if (isAuth0Configured() && (!session || !session.userId)) {
+    // Requirement 1 & 3: Require a verified Auth0 session to access history.
+    // Anonymous visitors are never permitted to access shared server-side history.
+    if (!session || !session.userId) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized: authenticated session required to access investigation history" },
+        {
+          success: false,
+          code: "UNAUTHORIZED",
+          error: "Unauthorized: authenticated session required to access investigation history",
+        },
         { status: 401 }
       );
     }
 
-    // Requirement 3: Never accept ownerId from query parameters.
-    // Query is strictly scoped to server session identity (or local demo mode).
-    const ownerId = session?.userId || "demo_local_isolated";
+    // Always bind strictly to verified session identity
+    const ownerId = session.userId;
 
     const { searchParams } = new URL(req.url);
     const agentName = searchParams.get("agent") || undefined;
@@ -30,7 +50,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       ownerId,
-      storageEngine: isMongoConfigured() && session?.userId ? "mongodb_atlas" : "in_memory_fallback",
+      storageEngine: isMongoConfigured() ? "mongodb_atlas" : "in_memory_fallback",
       count: investigations.length,
       statistics: stats,
       investigations,

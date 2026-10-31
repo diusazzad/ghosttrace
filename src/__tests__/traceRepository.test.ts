@@ -12,14 +12,16 @@ import { GET as historyRoute } from "@/app/api/traces/history/route";
 import { NextRequest } from "next/server";
 import * as authModule from "@/lib/auth/auth0";
 
-describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01C.1)", () => {
+describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01C.1 & TASK 01C.2)", () => {
   beforeEach(() => {
     inMemoryTraceStore.clear();
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   const mockInvestigation: StoredInvestigation = {
@@ -92,6 +94,54 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
     await expect(getTraceStatistics("")).rejects.toThrow(
       "getTraceStatistics requires a non-empty ownerId"
     );
+  });
+
+  it("guarantees collision-safe in-memory keys for colon-containing owner IDs and trace IDs (TASK 01C.2)", async () => {
+    // Delimiter collision case:
+    // ownerId="tenant:a" + traceId="trace-b" vs ownerId="tenant" + traceId="a:trace-b"
+    const record1: StoredInvestigation = {
+      ...mockInvestigation,
+      ownerId: "tenant:a",
+      traceId: "trace-b",
+      agentName: "AgentOne",
+    };
+    const record2: StoredInvestigation = {
+      ...mockInvestigation,
+      ownerId: "tenant",
+      traceId: "a:trace-b",
+      agentName: "AgentTwo",
+    };
+
+    inMemoryTraceStore.save(record1);
+    inMemoryTraceStore.save(record2);
+
+    // Both must be preserved independently without overwriting each other
+    const retrieved1 = inMemoryTraceStore.getByTraceId("trace-b", "tenant:a");
+    const retrieved2 = inMemoryTraceStore.getByTraceId("a:trace-b", "tenant");
+
+    expect(retrieved1).not.toBeNull();
+    expect(retrieved1?.agentName).toBe("AgentOne");
+    expect(retrieved1?.ownerId).toBe("tenant:a");
+    expect(retrieved1?.traceId).toBe("trace-b");
+
+    expect(retrieved2).not.toBeNull();
+    expect(retrieved2?.agentName).toBe("AgentTwo");
+    expect(retrieved2?.ownerId).toBe("tenant");
+    expect(retrieved2?.traceId).toBe("a:trace-b");
+
+    // Cross-tenant lookup returns null
+    expect(inMemoryTraceStore.getByTraceId("trace-b", "tenant")).toBeNull();
+    expect(inMemoryTraceStore.getByTraceId("a:trace-b", "tenant:a")).toBeNull();
+
+    // Listing is strictly scoped
+    const listTenantA = inMemoryTraceStore.list({ ownerId: "tenant:a" });
+    const listTenant = inMemoryTraceStore.list({ ownerId: "tenant" });
+    expect(listTenantA.length).toBe(1);
+    expect(listTenantA[0].agentName).toBe("AgentOne");
+    expect(listTenant.length).toBe(1);
+    expect(listTenant[0].agentName).toBe("AgentTwo");
+
+    expect(inMemoryTraceStore.count()).toBe(2);
   });
 
   it("enforces multi-tenant trace isolation between different owners sharing the same traceId", async () => {
@@ -227,7 +277,39 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
   });
 
   describe("API Route Security Gates", () => {
-    it("returns 401 on POST /api/traces/save when Auth0 is configured and session is absent", async () => {
+    it("returns HTTP 503 with AUTH_NOT_CONFIGURED on POST /api/traces/save when in production and Auth0 is unconfigured", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(false);
+
+      const req = new NextRequest("http://localhost:3000/api/traces/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mockInvestigation),
+      });
+
+      const res = await saveRoute(req);
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.code).toBe("AUTH_NOT_CONFIGURED");
+      expect(body.error).toBe("AUTH_NOT_CONFIGURED");
+    });
+
+    it("returns HTTP 503 with AUTH_NOT_CONFIGURED on GET /api/traces/history when in production and Auth0 is unconfigured", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(false);
+
+      const req = new NextRequest("http://localhost:3000/api/traces/history");
+      const res = await historyRoute(req);
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.code).toBe("AUTH_NOT_CONFIGURED");
+      expect(body.error).toBe("AUTH_NOT_CONFIGURED");
+    });
+
+    it("returns 401 on POST /api/traces/save when unauthenticated in production", async () => {
+      vi.stubEnv("NODE_ENV", "production");
       vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
       vi.spyOn(authModule, "getServerSession").mockResolvedValue(null);
 
@@ -241,7 +323,46 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
       expect(res.status).toBe(401);
       const body = await res.json();
       expect(body.success).toBe(false);
-      expect(body.error).toContain("Unauthorized");
+      expect(body.code).toBe("UNAUTHORIZED");
+    });
+
+    it("returns 401 on GET /api/traces/history when unauthenticated in production", async () => {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
+      vi.spyOn(authModule, "getServerSession").mockResolvedValue(null);
+
+      const req = new NextRequest("http://localhost:3000/api/traces/history");
+      const res = await historyRoute(req);
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.code).toBe("UNAUTHORIZED");
+    });
+
+    it("prevents cross-visitor data disclosure between two unauthenticated visitors", async () => {
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
+      vi.spyOn(authModule, "getServerSession").mockResolvedValue(null);
+
+      // Visitor 1 attempts to save a confidential trace anonymously
+      const reqSave = new NextRequest("http://localhost:3000/api/traces/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...mockInvestigation,
+          traceId: "visitor_a_private_trace",
+        }),
+      });
+      const resSave = await saveRoute(reqSave);
+      expect(resSave.status).toBe(401);
+
+      // Visitor 2 attempts to query history anonymously
+      const reqHistory = new NextRequest("http://localhost:3000/api/traces/history");
+      const resHistory = await historyRoute(reqHistory);
+      expect(resHistory.status).toBe(401);
+
+      // Verify that in-memory store has zero traces saved under shared demo or anonymous owner
+      expect(inMemoryTraceStore.count("demo_local_isolated")).toBe(0);
+      expect(inMemoryTraceStore.count("sandbox_anonymous")).toBe(0);
     });
 
     it("ignores client-supplied body.ownerId and binds strictly to verified session identity", async () => {
@@ -275,19 +396,6 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
       // Verify the victim's partition has zero records
       const victimTrace = await getInvestigationByTraceId(mockInvestigation.traceId, "auth0|spoofed_victim_id");
       expect(victimTrace).toBeNull();
-    });
-
-    it("returns 401 on GET /api/traces/history when Auth0 is configured and session is absent", async () => {
-      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
-      vi.spyOn(authModule, "getServerSession").mockResolvedValue(null);
-
-      const req = new NextRequest("http://localhost:3000/api/traces/history?limit=10");
-      const res = await historyRoute(req);
-      expect(res.status).toBe(401);
-
-      const body = await res.json();
-      expect(body.success).toBe(false);
-      expect(body.error).toContain("Unauthorized");
     });
 
     it("ignores ?ownerId= query parameter and scopes GET /api/traces/history strictly to session", async () => {

@@ -4,18 +4,39 @@ import { getServerSession, isAuth0Configured } from "@/lib/auth/auth0";
 
 export async function POST(req: NextRequest) {
   try {
+    const isProd = process.env.NODE_ENV === "production";
+    const auth0Ready = isAuth0Configured();
+
+    // Requirement 2: If Auth0 is not configured in production, return HTTP 503 with AUTH_NOT_CONFIGURED
+    if (isProd && !auth0Ready) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: "AUTH_NOT_CONFIGURED",
+          error: "AUTH_NOT_CONFIGURED",
+          message: "Authentication service is not configured in production environment",
+        },
+        { status: 503 }
+      );
+    }
+
     const session = await getServerSession(req);
 
-    // Requirement 1 & 2: Return 401 when Auth0 is configured and request lacks a verified session
-    if (isAuth0Configured() && (!session || !session.userId)) {
+    // Requirement 1 & 3: Require a verified Auth0 session for saving investigations.
+    // Anonymous visitors are strictly denied saving investigations to server-side storage.
+    if (!session || !session.userId) {
       return NextResponse.json(
-        { success: false, error: "Unauthorized: authenticated session required to save investigations" },
+        {
+          success: false,
+          code: "UNAUTHORIZED",
+          error: "Unauthorized: authenticated session required to save investigations",
+        },
         { status: 401 }
       );
     }
 
-    // Requirement 3: Never accept client-supplied ownerId. Always bind strictly to session identity
-    const ownerId = session?.userId || "demo_local_isolated";
+    // Always bind strictly to verified session identity; never accept client-supplied ownerId
+    const ownerId = session.userId;
 
     const body = await req.json();
 

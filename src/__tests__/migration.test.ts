@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { migrateTraceIndexes } from "@/lib/db/migrateIndexes";
+import { migrateTraceIndexes, UNOWNED_OR_INVALID_OWNER_FILTER } from "@/lib/db/migrateIndexes";
 import { ensureIndexes, MongoIndexVerificationError } from "@/lib/db/mongodb";
 import { Db, Collection } from "mongodb";
 
-describe("Safe MongoDB Index Migration & Verification (TASK 01C.1)", () => {
+describe("Safe MongoDB Index Migration & Verification (TASK 01C.1 & TASK 01C.2)", () => {
   let mockIndexes: Array<{ name: string; key: Record<string, number>; unique?: boolean }>;
   let mockCountDocuments: ReturnType<typeof vi.fn>;
   let mockCreateIndex: ReturnType<typeof vi.fn>;
@@ -60,6 +60,31 @@ describe("Safe MongoDB Index Migration & Verification (TASK 01C.1)", () => {
       expect(mockDropIndex).not.toHaveBeenCalled();
       // Compound index was created
       expect(mockCreateIndex).toHaveBeenCalledWith({ ownerId: 1, traceId: 1 }, { unique: true });
+    });
+
+    it("uses strict validation filter to detect missing, null, non-string, empty, and whitespace owner IDs", async () => {
+      await migrateTraceIndexes(mockDb, { dryRun: true });
+
+      // Verifies that countDocuments was called with UNOWNED_OR_INVALID_OWNER_FILTER
+      expect(mockCountDocuments).toHaveBeenCalledWith(UNOWNED_OR_INVALID_OWNER_FILTER);
+      expect(UNOWNED_OR_INVALID_OWNER_FILTER.$or).toEqual([
+        { ownerId: { $exists: false } },
+        { ownerId: null },
+        { ownerId: { $not: { $type: "string" } } },
+        { ownerId: { $regex: /^\s*$/ } },
+      ]);
+    });
+
+    it("blocks legacy index removal when whitespace-only or non-string owner records are detected", async () => {
+      // Simulate detection of 3 records with whitespace-only or non-string owner IDs
+      mockCountDocuments.mockResolvedValue(3);
+
+      const plan = await migrateTraceIndexes(mockDb, { dryRun: false });
+
+      expect(plan.status).toBe("needs_owner_backfill");
+      expect(plan.unownedDocumentCount).toBe(3);
+      expect(mockDropIndex).not.toHaveBeenCalled();
+      expect(plan.actions.some((a) => a.includes("Safety guard"))).toBe(true);
     });
 
     it("executes safe migration in live mode (dryRun: false) when all documents are owned", async () => {
