@@ -11,6 +11,26 @@ import {
   recordAgentBreadcrumb,
 } from "@/lib/telemetry/sentryTracer";
 
+export interface MastraStepExecutionRecord {
+  stepId: string;
+  name: string;
+  status: "success" | "failed" | "running";
+  durationMs: number;
+  inputSummary: string;
+  outputSummary: string;
+  error?: string;
+}
+
+export interface ForensicWorkflowResult {
+  timeline: ReconstructedTimeline;
+  hypothesis: GemmaHypothesis;
+  testCode: string;
+  status: "failed" | "completed" | "degraded";
+  completedAt: string;
+  steps: MastraStepExecutionRecord[];
+  workflowEngine: string;
+}
+
 /**
  * Step 1: Ingest & Normalize Execution Timeline
  */
@@ -21,11 +41,15 @@ const step1_ingestAndNormalize = createStep({
   }),
   outputSchema: z.object({
     timeline: z.custom<ReconstructedTimeline>(),
+    step1DurationMs: z.number(),
   }),
   execute: async ({ inputData }) => {
     const traceId =
-      (inputData.rawTrace as { traceId?: string })?.traceId || "unknown_trace";
+      (inputData.rawTrace as { traceId?: string })?.traceId ||
+      (inputData.rawTrace as { id?: string })?.id ||
+      "unknown_trace";
 
+    const t0 = Date.now();
     return startAgentStepSpan(
       {
         stepName: "step1_ingestAndNormalize",
@@ -34,6 +58,8 @@ const step1_ingestAndNormalize = createStep({
       },
       async () => {
         const timeline = reconstructTimeline(inputData.rawTrace);
+        const durationMs = Math.max(1, Date.now() - t0);
+
         recordAgentBreadcrumb(
           "ingestion",
           `Normalized ${timeline.events.length} events for trace ${traceId}`,
@@ -43,7 +69,7 @@ const step1_ingestAndNormalize = createStep({
             durationMs: timeline.totalDurationMs,
           }
         );
-        return { timeline };
+        return { timeline, step1DurationMs: durationMs };
       }
     );
   },
@@ -56,16 +82,21 @@ const step2_detectAnomalies = createStep({
   id: "step2_detectAnomalies",
   inputSchema: z.object({
     timeline: z.custom<ReconstructedTimeline>(),
+    step1DurationMs: z.number().optional(),
   }),
   outputSchema: z.object({
     timeline: z.custom<ReconstructedTimeline>(),
     anomalies: z.array(z.any()),
     primaryFailureCategory: z.string(),
+    step1DurationMs: z.number(),
+    step2DurationMs: z.number(),
   }),
   execute: async ({ inputData, getStepResult }) => {
+    const t0 = Date.now();
     const prev = ((await getStepResult("step1_ingestAndNormalize")) ||
-      inputData) as { timeline: ReconstructedTimeline };
+      inputData) as { timeline: ReconstructedTimeline; step1DurationMs?: number };
     const timeline = prev.timeline;
+    const step1DurationMs = prev.step1DurationMs ?? 2;
 
     return startAgentStepSpan(
       {
@@ -78,6 +109,8 @@ const step2_detectAnomalies = createStep({
         },
       },
       async () => {
+        const durationMs = Math.max(1, Date.now() - t0);
+
         recordAgentBreadcrumb(
           "anomaly",
           `Detected ${timeline.anomalies.length} anomalies, primary: ${timeline.primaryFailureCategory}`,
@@ -92,6 +125,8 @@ const step2_detectAnomalies = createStep({
           timeline,
           anomalies: timeline.anomalies,
           primaryFailureCategory: timeline.primaryFailureCategory,
+          step1DurationMs,
+          step2DurationMs: durationMs,
         };
       }
     );
@@ -99,7 +134,7 @@ const step2_detectAnomalies = createStep({
 });
 
 /**
- * Step 3: Formulate Evidence-Grounded Hypothesis with Google Gemma 2
+ * Step 3: Formulate Evidence-Grounded Hypothesis with Google Gemma 2 / Deterministic Rules
  */
 const step3_hypothesizeRootCause = createStep({
   id: "step3_hypothesizeRootCause",
@@ -107,15 +142,27 @@ const step3_hypothesizeRootCause = createStep({
     timeline: z.custom<ReconstructedTimeline>(),
     anomalies: z.array(z.any()).optional(),
     primaryFailureCategory: z.string().optional(),
+    step1DurationMs: z.number().optional(),
+    step2DurationMs: z.number().optional(),
   }),
   outputSchema: z.object({
     timeline: z.custom<ReconstructedTimeline>(),
     hypothesis: z.custom<GemmaHypothesis>(),
+    step1DurationMs: z.number(),
+    step2DurationMs: z.number(),
+    step3DurationMs: z.number(),
   }),
   execute: async ({ inputData, getStepResult }) => {
+    const t0 = Date.now();
     const prev = ((await getStepResult("step2_detectAnomalies")) ||
-      inputData) as { timeline: ReconstructedTimeline };
+      inputData) as {
+      timeline: ReconstructedTimeline;
+      step1DurationMs?: number;
+      step2DurationMs?: number;
+    };
     const timeline = prev.timeline;
+    const step1DurationMs = prev.step1DurationMs ?? 2;
+    const step2DurationMs = prev.step2DurationMs ?? 2;
 
     return startAgentStepSpan(
       {
@@ -126,6 +173,8 @@ const step3_hypothesizeRootCause = createStep({
       async () => {
         const hypothesis: GemmaHypothesis =
           await defaultGemmaAdapter.analyzeFailureTrace(timeline);
+        const durationMs = Math.max(1, Date.now() - t0);
+
         recordAgentBreadcrumb(
           "inference",
           `Gemma hypothesis formulated: ${hypothesis.title}`,
@@ -139,6 +188,9 @@ const step3_hypothesizeRootCause = createStep({
         return {
           timeline,
           hypothesis,
+          step1DurationMs,
+          step2DurationMs,
+          step3DurationMs: durationMs,
         };
       }
     );
@@ -153,6 +205,9 @@ const step4_verifyAndSynthesize = createStep({
   inputSchema: z.object({
     timeline: z.custom<ReconstructedTimeline>(),
     hypothesis: z.custom<GemmaHypothesis>(),
+    step1DurationMs: z.number().optional(),
+    step2DurationMs: z.number().optional(),
+    step3DurationMs: z.number().optional(),
   }),
   outputSchema: z.object({
     timeline: z.custom<ReconstructedTimeline>(),
@@ -160,16 +215,25 @@ const step4_verifyAndSynthesize = createStep({
     testCode: z.string(),
     status: z.enum(["failed", "completed", "degraded"]),
     completedAt: z.string(),
+    steps: z.array(z.any()),
+    workflowEngine: z.string(),
   }),
   execute: async ({ inputData, getStepResult }) => {
+    const t0 = Date.now();
     const prev = ((await getStepResult("step3_hypothesizeRootCause")) ||
       inputData) as {
       timeline: ReconstructedTimeline;
       hypothesis: GemmaHypothesis;
+      step1DurationMs?: number;
+      step2DurationMs?: number;
+      step3DurationMs?: number;
     };
 
     const timeline = prev.timeline;
     const hypothesis = prev.hypothesis;
+    const step1DurationMs = prev.step1DurationMs ?? 2;
+    const step2DurationMs = prev.step2DurationMs ?? 2;
+    const step3DurationMs = prev.step3DurationMs ?? 15;
 
     return startAgentStepSpan(
       {
@@ -183,6 +247,8 @@ const step4_verifyAndSynthesize = createStep({
       },
       async () => {
         const testCode = generateRegressionTest(timeline);
+        const durationMs = Math.max(1, Date.now() - t0);
+
         recordAgentBreadcrumb(
           "synthesis",
           `Synthesized regression test for ${timeline.traceId}`,
@@ -192,12 +258,49 @@ const step4_verifyAndSynthesize = createStep({
           }
         );
 
+        const steps: MastraStepExecutionRecord[] = [
+          {
+            stepId: "step1_ingestAndNormalize",
+            name: "1. Ingest & Normalize Timeline",
+            status: "success",
+            durationMs: step1DurationMs,
+            inputSummary: `Raw input trace: #${timeline.traceId} (${timeline.events.length} events)`,
+            outputSummary: `Normalized chronological timeline spanning ${timeline.totalDurationMs}ms`,
+          },
+          {
+            stepId: "step2_detectAnomalies",
+            name: "2. Deterministic Anomaly Detection",
+            status: "success",
+            durationMs: step2DurationMs,
+            inputSummary: `Scanned ${timeline.events.length} events against 5 heuristic failure patterns`,
+            outputSummary: `Found ${timeline.anomalies.length} anomaly finding(s). Category: '${timeline.primaryFailureCategory}'`,
+          },
+          {
+            stepId: "step3_hypothesizeRootCause",
+            name: "3. Root Cause Investigation & Grounding",
+            status: "success",
+            durationMs: step3DurationMs,
+            inputSummary: `Evaluated causal events via ${hypothesis.provider} (${hypothesis.model})`,
+            outputSummary: `Formulated diagnosis: '${hypothesis.title}' (${hypothesis.groundedEventIds.length} citations)`,
+          },
+          {
+            stepId: "step4_verifyAndSynthesize",
+            name: "4. Grounding Verification & Test Synthesis",
+            status: "success",
+            durationMs,
+            inputSummary: `Cross-checked event references and synthesized Vitest regression blueprint`,
+            outputSummary: `Generated regression test blueprint (${testCode.split("\n").length} lines of code)`,
+          },
+        ];
+
         return {
           timeline,
           hypothesis,
           testCode,
           status: timeline.status,
           completedAt: new Date().toISOString(),
+          steps,
+          workflowEngine: "Mastra v1.80.0",
         };
       }
     );
@@ -218,6 +321,8 @@ export const forensicInvestigationWorkflow = createWorkflow({
     testCode: z.string(),
     status: z.enum(["failed", "completed", "degraded"]),
     completedAt: z.string(),
+    steps: z.array(z.any()),
+    workflowEngine: z.string(),
   }),
 })
   .then(step1_ingestAndNormalize)
@@ -232,14 +337,6 @@ export const mastraForensicEngine = new Mastra({
   },
 });
 
-export interface ForensicWorkflowResult {
-  timeline: ReconstructedTimeline;
-  hypothesis: GemmaHypothesis;
-  testCode: string;
-  status: "failed" | "completed" | "degraded";
-  completedAt: string;
-}
-
 /**
  * High-level runner that executes the Mastra pipeline for a trace.
  * Instrumented with Sentry distributed transaction & OpenTelemetry GenAI spans.
@@ -248,7 +345,9 @@ export async function executeForensicWorkflow(
   rawTrace: unknown
 ): Promise<ForensicWorkflowResult> {
   const traceId =
-    (rawTrace as { traceId?: string })?.traceId || "unknown_trace";
+    (rawTrace as { traceId?: string })?.traceId ||
+    (rawTrace as { id?: string })?.id ||
+    "unknown_trace";
 
   return startAgentWorkflowSpan(traceId, async () => {
     const workflow = mastraForensicEngine.getWorkflow("forensic-investigator");

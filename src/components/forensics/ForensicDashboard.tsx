@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header, AuthStateDTO } from "@/components/layout/Header";
 import { TraceSummaryCards } from "@/components/forensics/TraceSummaryCards";
+import { MastraWorkflowStepper } from "@/components/forensics/MastraWorkflowStepper";
 import { WaterfallTimeline } from "@/components/forensics/WaterfallTimeline";
 import { EvidenceHypothesisCard } from "@/components/forensics/EvidenceHypothesisCard";
 import { RegressionTestExporter } from "@/components/forensics/RegressionTestExporter";
@@ -35,27 +36,34 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
   const handleReAnalyze = async () => {
     try {
       setIsAnalyzing(true);
-      const res = await fetch("/api/traces/hypothesize", {
+      const res = await fetch("/api/traces/workflow", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ trace: activeTrace }),
       });
 
-      if (!res.ok) throw new Error("Failed to re-analyze trace");
+      if (!res.ok) throw new Error("Failed to execute Mastra forensic workflow");
 
       const data = await res.json();
       if (data.success && data.hypothesis) {
         const updatedTrace: TraceRun = {
           ...activeTrace,
+          events: data.timeline?.events || activeTrace.events,
+          failureCategory:
+            data.timeline?.primaryFailureCategory || activeTrace.failureCategory,
+          totalDurationMs:
+            data.timeline?.totalDurationMs ?? activeTrace.totalDurationMs,
           hypothesis: data.hypothesis,
           generatedTestCode: data.testCode || activeTrace.generatedTestCode,
+          mastraSteps: data.steps || activeTrace.mastraSteps,
+          workflowEngine: data.workflowEngine || "Mastra v1.80.0",
         };
         setActiveTrace(updatedTrace);
         setTraces((prev) =>
           prev.map((t) => (t.id === updatedTrace.id ? updatedTrace : t))
         );
 
-        // Persist to MongoDB Atlas
+        // Persist to MongoDB Atlas via isolated server session
         fetch("/api/traces/save", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -75,7 +83,7 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
         }).catch((err) => console.warn("Failed to persist to MongoDB Atlas:", err));
       }
     } catch (err) {
-      console.error("Re-analyze error:", err);
+      console.error("Workflow re-analyze error:", err);
     } finally {
       setIsAnalyzing(false);
     }
@@ -110,6 +118,13 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
             <>
               {/* Stat Metric Cards */}
               <TraceSummaryCards trace={activeTrace} />
+
+              {/* Mastra 4-Step Forensic Workflow Stepper */}
+              <MastraWorkflowStepper
+                steps={activeTrace.mastraSteps}
+                workflowEngine={activeTrace.workflowEngine || "Mastra v1.80.0"}
+                isAnalyzing={isAnalyzing}
+              />
 
               {/* Core 2-Column or Stacked Inspection Workspace */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
@@ -150,6 +165,12 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
                 </p>
               </div>
 
+              <MastraWorkflowStepper
+                steps={activeTrace.mastraSteps}
+                workflowEngine={activeTrace.workflowEngine || "Mastra v1.80.0"}
+                isAnalyzing={isAnalyzing}
+              />
+
               <EvidenceHypothesisCard
                 trace={activeTrace}
                 selectedEventId={selectedEventId}
@@ -181,7 +202,7 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
             </div>
           )}
 
-                    {/* Dedicated MongoDB Atlas History Tab */}
+          {/* Dedicated MongoDB Atlas History Tab */}
           {currentTab === "history" && (
             <IncidentHistoryView
               onSelectHistoricalTrace={(traceId) => {

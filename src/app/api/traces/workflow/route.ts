@@ -10,7 +10,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      workflowEngine: "Mastra v1.80.0",
       ...result,
     });
   } catch (error: unknown) {
