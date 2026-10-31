@@ -141,9 +141,9 @@ export const MastraWorkflowStepper: React.FC<MastraWorkflowStepperProps> = ({
                     )}
                   </div>
 
-                  {/* Footer status line */}
+                  {/* Footer status line with non-breaking Step counter */}
                   <div className="mt-2 pt-2 border-t border-gray-800/60 flex items-center justify-between text-[9px] font-mono text-gray-500">
-                    <span>Step 0{idx + 1}</span>
+                    <span className="whitespace-nowrap font-medium">Step 0{idx + 1}</span>
                     <span className="capitalize text-gray-400">
                       {isCompleted ? "Completed" : isCurrent ? "Processing" : "Queued"}
                     </span>

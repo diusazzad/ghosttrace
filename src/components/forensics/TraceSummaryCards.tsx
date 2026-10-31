@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { AlertCircle, Clock, Zap, DollarSign, Layers, Info } from "lucide-react";
+import { AlertCircle, Clock, Zap, Layers } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
 interface TraceSummaryCardsProps {
@@ -13,6 +13,13 @@ export const TraceSummaryCards: React.FC<TraceSummaryCardsProps> = ({ trace }) =
   const llmCount = trace.events.filter((e) => e.type === "llm").length;
   const toolCount = trace.events.filter((e) => e.type === "tool").length;
   const errorCount = trace.events.filter((e) => e.type === "error" || e.status === "error").length;
+
+  // Title-cased failure category with spaces (e.g. "unhandled_tool_error" -> "Unhandled Tool Error")
+  const formattedFailureCategory = trace.failureCategory
+    .replaceAll("_", " ")
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -30,8 +37,8 @@ export const TraceSummaryCards: React.FC<TraceSummaryCardsProps> = ({ trace }) =
           <AlertCircle className="h-4 w-4" />
         </div>
         <div className="mt-2">
-          <div className="text-lg font-bold text-white capitalize">
-            {trace.failureCategory.replace("_", " ")}
+          <div className="text-lg font-bold text-white">
+            {formattedFailureCategory}
           </div>
           <p className="text-[11px] text-gray-400 mt-1 line-clamp-2">
             {trace.failureDescription}
@@ -98,17 +105,14 @@ export const TraceSummaryCards: React.FC<TraceSummaryCardsProps> = ({ trace }) =
             {isFixture ? "Illustrative fixture footprint" : "Total context consumed"}
           </p>
         </div>
-        <div className="mt-3 pt-2 border-t border-gray-800 flex items-center justify-between text-[11px] font-mono text-emerald-400">
-          <span className="flex items-center">
-            <DollarSign className="h-3 w-3" />
-            <span>
-              {isFixture
-                ? `Est. Fixture Cost: $${trace.estimatedCostUsd.toFixed(4)}`
-                : `Est. Cost: $${trace.estimatedCostUsd.toFixed(4)}`}
-            </span>
+        <div className="mt-3 pt-2 border-t border-gray-800 flex items-center justify-between gap-1 text-[11px] font-mono text-emerald-400">
+          <span className="truncate whitespace-nowrap font-medium">
+            {isFixture
+              ? `Est. Fixture Cost: $${trace.estimatedCostUsd.toFixed(4)}`
+              : `Est. Cost: $${trace.estimatedCostUsd.toFixed(4)}`}
           </span>
           {isFixture && (
-            <span className="text-[9px] font-mono text-amber-400/80 bg-amber-950/40 px-1 py-0.5 rounded border border-amber-500/20">
+            <span className="text-[9px] font-mono text-amber-400/80 bg-amber-950/40 px-1 py-0.5 rounded border border-amber-500/20 shrink-0">
               Sample
             </span>
           )}

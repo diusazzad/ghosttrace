@@ -36,13 +36,16 @@ export const PartnerDiagnosticsBar: React.FC<PartnerDiagnosticsBarProps> = ({
   const tigerStatus: PartnerStatus = customDiagnostics?.tigerData?.status ?? (isFixture ? "simulated" : "not_configured");
   const tigerCluster = customDiagnostics?.tigerData?.metricValue ?? (isLoop ? "#CLUSTER-LOOP-404" : isHallucination ? "#CLUSTER-ARG-MISMATCH" : "#CLUSTER-UPSTREAM-500");
 
+  // Derive clean suffix without clipping words: e.g. "trace-tool-crash-004" -> "crash-004"
+  const shortSuffix = trace.id.split("-").slice(-2).join("-") || trace.id;
+
   // Temporal diagnostic state
   const temporalStatus: PartnerStatus = customDiagnostics?.temporal?.status ?? (isFixture ? "simulated" : "not_configured");
-  const temporalWorkflowId = customDiagnostics?.temporal?.executionId ?? (isFixture ? `sim_wf_${trace.id.slice(-6)}` : "None");
+  const temporalWorkflowId = customDiagnostics?.temporal?.executionId ?? (isFixture ? `sim_wf_${shortSuffix}` : "None");
 
   // Browserbase diagnostic state
   const browserbaseStatus: PartnerStatus = customDiagnostics?.browserbase?.status ?? (isFixture ? "simulated" : "not_configured");
-  const browserbaseSessionId = customDiagnostics?.browserbase?.executionId ?? (isFixture ? `sim_bb_${trace.id.slice(-8)}` : "None");
+  const browserbaseSessionId = customDiagnostics?.browserbase?.executionId ?? (isFixture ? `sim_bb_${shortSuffix}` : "None");
 
   const getStatusBadge = (status: PartnerStatus, itemSource: TelemetrySource) => {
     switch (status) {
