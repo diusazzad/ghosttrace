@@ -4,6 +4,8 @@ import { reconstructTimeline } from "@/lib/detector";
 import { defaultUltramarineAdapter } from "@/lib/ai/ultramarineAdapter";
 import { validateWorkflowSecurity } from "@/lib/auth/workflowSecurity";
 
+export const dynamic = "force-dynamic";
+
 const MAX_BODY_BYTES = 1024 * 1024; // 1 MiB
 
 export async function POST(req: NextRequest) {

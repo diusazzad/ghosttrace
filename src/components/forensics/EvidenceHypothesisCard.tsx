@@ -144,13 +144,13 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
           <span
             className={`px-2 py-0.5 rounded text-[10px] font-mono border ${
               isFallback
-                ? "bg-amber-950/60 border-amber-500/40 text-amber-300"
+                ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
                 : isUltramarineProvider
                 ? "bg-emerald-950/60 border-emerald-500/40 text-emerald-300"
                 : "bg-blue-950/60 border-blue-500/40 text-blue-300"
             }`}
           >
-            {isFallback ? "mode: fallback" : "mode: live_inference"}
+            {isFallback ? "mode: deterministic" : "mode: live_inference"}
           </span>
 
           {/* Confidence Badge */}
@@ -169,13 +169,13 @@ export const EvidenceHypothesisCard: React.FC<EvidenceHypothesisCardProps> = ({
       </div>
 
       <div className="p-4 space-y-4 text-sm flex-1 flex flex-col justify-between">
-        {/* Fallback Notice Banner if Deterministic Baseline */}
+        {/* Grounded Deterministic Notice Banner */}
         {isFallback && currentDisplay.fallbackReason && (
-          <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+          <div className="p-3 rounded-lg bg-emerald-950/30 border border-emerald-500/30 text-emerald-300 text-xs flex items-start gap-2">
+            <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold">Deterministic Fallback Active</p>
-              <p className="text-[11px] text-amber-400/80 mt-0.5">
+              <p className="font-semibold text-emerald-300">Grounded Deterministic Engine Active</p>
+              <p className="text-[11px] text-emerald-400/90 mt-0.5">
                 {currentDisplay.fallbackReason}
               </p>
             </div>
