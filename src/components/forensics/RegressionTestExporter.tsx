@@ -35,9 +35,9 @@ export const RegressionTestExporter: React.FC<RegressionTestExporterProps> = ({ 
       <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-[#161b22]/40">
         <div className="flex items-center gap-2">
           <FileCode className="h-4 w-4 text-emerald-400" />
-          <h3 className="text-sm font-semibold text-white">Reproducible Regression Test</h3>
+          <h3 className="text-sm font-semibold text-white">Reproducible Regression Test Blueprint</h3>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            Vitest / Jest
+            Vitest Blueprint
           </span>
         </div>
 
@@ -73,7 +73,7 @@ export const RegressionTestExporter: React.FC<RegressionTestExporterProps> = ({ 
       {/* Code Display */}
       <div className="p-4 bg-black/50 overflow-x-auto">
         <div className="flex items-center justify-between text-[10px] font-mono text-gray-500 pb-2 border-b border-gray-800/60 mb-2">
-          <span>{`// Auto-generated deterministic regression harness for #${trace.id}`}</span>
+          <span>{`// Auto-generated regression blueprint for #${trace.id}`}</span>
           <span>Target: {trace.agentName}</span>
         </div>
         <pre className="text-xs font-mono text-emerald-300 leading-relaxed overflow-x-auto">
@@ -84,7 +84,7 @@ export const RegressionTestExporter: React.FC<RegressionTestExporterProps> = ({ 
       {/* Footer Info */}
       <div className="p-3 border-t border-gray-800/80 bg-[#161b22]/20 text-[11px] text-gray-400 flex items-center gap-2">
         <Terminal className="h-3.5 w-3.5 text-purple-400" />
-        <span>Run with <code className="text-gray-200 bg-black/40 px-1 py-0.5 rounded font-mono">pnpm test</code> to ensure your agent fix prevents recurrence.</span>
+        <span>Synthesized test blueprint. Review imports and assertions before running with <code className="text-gray-200 bg-black/40 px-1 py-0.5 rounded font-mono">pnpm test</code>.</span>
       </div>
     </div>
   );

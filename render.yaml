@@ -1,40 +1,37 @@
-# Render Blueprint Infrastructure-as-Code for GhostTrace
-# Hacktoberfest Featured Track: Best Use of Render ($200 USD)
 services:
   - type: web
     name: ghosttrace
     runtime: node
     plan: free
     region: oregon
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install && pnpm build
     startCommand: pnpm start
-    healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
       - key: NEXT_TELEMETRY_DISABLED
-        value: 1
-      - key: BACKBOARD_API_KEY
-        sync: false
-      - key: GEMMA_MODEL_NAME
-        value: google/gemma-2-9b-it
-      - key: NEXT_PUBLIC_SENTRY_DSN
-        sync: false
-      - key: SENTRY_ENVIRONMENT
-        value: production
+        value: "1"
       - key: MONGODB_URI
         sync: false
       - key: MONGODB_DB_NAME
-        value: ghosttrace_production
-      - key: AUTH0_DOMAIN
+        value: ghosttrace
+      - key: AUTH0_SECRET
+        sync: false
+      - key: AUTH0_BASE_URL
+        sync: false
+      - key: AUTH0_ISSUER_BASE_URL
         sync: false
       - key: AUTH0_CLIENT_ID
         sync: false
       - key: AUTH0_CLIENT_SECRET
         sync: false
-      - key: AUTH0_SECRET
+      - key: AUTH0_AUDIENCE
+        value: https://api.ghosttrace.dev
+      - key: SENTRY_DSN
         sync: false
-      - key: APP_BASE_URL
+      - key: BACKBOARD_API_KEY
+        sync: false
+      - key: ULTRAMARINE_API_KEY
+        sync: false
+      - key: TABPFN_API_KEY
         sync: false

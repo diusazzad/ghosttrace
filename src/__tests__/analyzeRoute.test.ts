@@ -34,4 +34,22 @@ describe("POST /api/traces/analyze Route", () => {
     expect(data.success).toBe(false);
     expect(data.error).toMatch(/Invalid trace format/);
   });
+
+  it("returns 413 for payload exceeding 1 MiB limit", async () => {
+    const req = new NextRequest("http://localhost:3000/api/traces/analyze", {
+      method: "POST",
+      body: JSON.stringify(fixture01),
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": String(2 * 1024 * 1024), // 2 MiB
+      },
+    });
+
+    const res = await POST(req);
+    expect(res.status).toBe(413);
+
+    const data = await res.json();
+    expect(data.success).toBe(false);
+    expect(data.code).toBe("PAYLOAD_TOO_LARGE");
+  });
 });

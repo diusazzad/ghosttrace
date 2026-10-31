@@ -7,6 +7,7 @@ import {
   Search,
   CheckCircle,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
@@ -27,6 +28,8 @@ interface HeaderProps {
   onUploadClick: () => void;
   onAnalyzeClick: () => void;
   isAnalyzing: boolean;
+  onUltramarineClick?: () => void;
+  isAnalyzingUltramarine?: boolean;
   authState?: AuthStateDTO;
 }
 
@@ -37,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   onUploadClick,
   onAnalyzeClick,
   isAnalyzing,
+  onUltramarineClick,
+  isAnalyzingUltramarine = false,
   authState,
 }) => {
   return (
@@ -79,14 +84,40 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Upload Trace</span>
         </button>
 
+        {/* Mastra + Gemma Investigation */}
         <button
           onClick={onAnalyzeClick}
-          disabled={isAnalyzing}
+          disabled={isAnalyzing || isAnalyzingUltramarine}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-medium shadow-lg shadow-purple-600/20 transition disabled:opacity-50"
         >
           <Cpu className={`h-3.5 w-3.5 ${isAnalyzing ? "animate-spin" : ""}`} />
-          <span>{isAnalyzing ? "Reasoning with Gemma..." : "Re-Analyze (Gemma 2)"}</span>
+          <span>
+            {isAnalyzing
+              ? "Executing Mastra Workflow..."
+              : "Run (Mastra + Gemma)"}
+          </span>
         </button>
+
+        {/* Ultramarine Investigation Button */}
+        {onUltramarineClick && (
+          <button
+            onClick={onUltramarineClick}
+            disabled={isAnalyzing || isAnalyzingUltramarine}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-medium shadow-lg shadow-cyan-600/20 transition disabled:opacity-50"
+            title="Analyze trace with Paper Instruments Ultramarine-1-Flash"
+          >
+            <Sparkles
+              className={`h-3.5 w-3.5 ${
+                isAnalyzingUltramarine ? "animate-spin" : ""
+              }`}
+            />
+            <span>
+              {isAnalyzingUltramarine
+                ? "Calling Ultramarine..."
+                : "Run with Ultramarine"}
+            </span>
+          </button>
+        )}
 
         <div className="h-4 w-px bg-gray-800" />
 
@@ -99,45 +130,37 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Sentry: Agent Tracing</span>
         </div>
 
-        <div className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-          <CheckCircle className="h-3 w-3" />
-          <span>Engine: Active</span>
-        </div>
-
-        {/* Auth0 for AI Agents Identity Status (Truthful Server-Derived) */}
-        {!authState?.isConfigured ? (
-          <div
-            className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-gray-800/60 text-gray-400 border border-gray-700/60 select-none"
-            title="Auth0 unconfigured: Running in local-first demo mode with synthetic fixtures."
-          >
-            <Shield className="h-3 w-3 text-gray-500" />
-            <span>Demo Mode · Sign-in unavailable</span>
-          </div>
-        ) : !authState?.isAuthenticated ? (
-          <a
-            href="/auth/login"
-            className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20 transition cursor-pointer"
-            title="Sign in with Auth0 Universal Login"
-          >
-            <Shield className="h-3 w-3 text-blue-400" />
-            <span>Sign in</span>
-          </a>
-        ) : (
-          <div className="flex items-center gap-2">
-            <div
-              className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-              title={`Server-verified session: ${authState.user?.userId}`}
-            >
-              <Shield className="h-3 w-3 text-emerald-400" />
-              <span>{authState.user?.name || authState.user?.email || "Authenticated user"}</span>
-            </div>
-            <a
-              href="/auth/logout"
-              className="text-[11px] font-mono text-gray-400 hover:text-gray-200 underline transition"
-              title="Sign out of Auth0 session"
-            >
-              Sign out
-            </a>
+        {/* Auth0 Authentication State Badge */}
+        {authState?.isConfigured && (
+          <div className="flex items-center gap-2 pl-2 border-l border-gray-800">
+            {authState.isAuthenticated && authState.user ? (
+              <div className="flex items-center gap-2">
+                <div
+                  className="flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800/60 px-2.5 py-1 rounded-lg border border-gray-700"
+                  title={`Logged in as ${authState.user.email || authState.user.userId}`}
+                >
+                  <Shield className="h-3.5 w-3.5 text-emerald-400" />
+                  <span className="max-w-[100px] truncate font-medium">
+                    {authState.user.name || authState.user.email || "Investigator"}
+                  </span>
+                  <CheckCircle className="h-3 w-3 text-emerald-400" />
+                </div>
+                <a
+                  href="/auth/logout"
+                  className="text-[11px] text-gray-400 hover:text-red-400 transition"
+                >
+                  Logout
+                </a>
+              </div>
+            ) : (
+              <a
+                href="/auth/login"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium transition shadow-md shadow-purple-600/20"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                <span>Log in</span>
+              </a>
+            )}
           </div>
         )}
       </div>

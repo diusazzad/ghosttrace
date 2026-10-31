@@ -4,26 +4,39 @@ export function generateRegressionTest(timeline: ReconstructedTimeline): string 
   const { traceId, agentName, primaryFailureCategory, anomalies, events } = timeline;
   const primaryAnomaly = anomalies[0];
 
+  // Sanitize untrusted identifiers to prevent syntax breaks or invalid imports
+  const safeAgentName = agentName.replace(/[^a-zA-Z0-9_]/g, "") || "TargetAgent";
+  const safeTraceId = traceId.replace(/[^a-zA-Z0-9_-]/g, "") || "trace_sample";
+
+  const blueprintHeader = `/**
+ * GhostTrace Regression Test Blueprint
+ * Generated for Incident Trace: #${safeTraceId}
+ * Target Agent: ${safeAgentName}
+ * Failure Category: ${primaryFailureCategory}
+ * Blueprint Status: Blueprint / Scaffold (Bind to your local agent test runner)
+ */\n\n`;
+
   switch (primaryFailureCategory) {
     case "infinite_loop": {
       const toolEvent = events.find(
         (e) => e.type === "tool" && (primaryAnomaly?.groundedEventIds.includes(e.id) || e.isCausalAnomaly)
       );
-      const toolName = toolEvent?.name || "fetch_order";
+      const rawToolName = toolEvent?.name || "fetch_order";
+      const safeToolName = rawToolName.replace(/[^a-zA-Z0-9_]/g, "") || "fetch_order";
 
-      return `import { describe, it, expect, vi } from "vitest";
-import { ${agentName} } from "@/agents/${agentName.toLowerCase()}";
+      return `${blueprintHeader}import { describe, it, expect, vi } from "vitest";
+import { ${safeAgentName} } from "@/agents/${safeAgentName.toLowerCase()}";
 
-describe("${agentName} - Infinite Loop Regression (#${traceId})", () => {
-  it("should not enter repetitive tool loop when '${toolName}' returns persistent failure", async () => {
+describe("${safeAgentName} - Infinite Loop Regression (#${safeTraceId})", () => {
+  it("should not enter repetitive tool loop when '${safeToolName}' returns persistent failure", async () => {
     // Arrange: Mock tool failure to reproduce trace condition
     const mockTool = vi.fn().mockResolvedValue({
       status: 404,
       error: "Entity not found in cache"
     });
 
-    const agent = new ${agentName}({
-      tools: { ${toolName}: mockTool },
+    const agent = new ${safeAgentName}({
+      tools: { ${safeToolName}: mockTool },
       circuitBreaker: { maxConsecutiveIdenticalCalls: 2 }
     });
 
@@ -44,12 +57,13 @@ describe("${agentName} - Infinite Loop Regression (#${traceId})", () => {
       const faultyTool = events.find(
         (e) => (e.status === "error" || e.type === "error") && primaryAnomaly?.groundedEventIds.includes(e.id)
       );
-      const toolName = faultyTool?.name || "tool_executor";
+      const rawToolName = faultyTool?.name || "tool_executor";
+      const safeToolName = rawToolName.replace(/[^a-zA-Z0-9_]/g, "") || "tool_executor";
 
-      return `import { describe, it, expect } from "vitest";
-import { ${toolName}Tool } from "@/tools/${toolName.toLowerCase()}";
+      return `${blueprintHeader}import { describe, it, expect } from "vitest";
+import { ${safeToolName}Tool } from "@/tools/${safeToolName.toLowerCase()}";
 
-describe("${agentName} - Parameter Schema Strictness (#${traceId})", () => {
+describe("${safeAgentName} - Parameter Schema Strictness (#${safeTraceId})", () => {
   it("strictly validates tool parameters and rejects hallucinated arguments", () => {
     // Arrange: Fabricated payload matching hallucinated LLM output
     const hallucinatedPayload = {
@@ -59,7 +73,7 @@ describe("${agentName} - Parameter Schema Strictness (#${traceId})", () => {
     };
 
     // Act & Assert: Schema parser should throw or return safe failure
-    const validationResult = ${toolName}Tool.schema.safeParse(hallucinatedPayload);
+    const validationResult = ${safeToolName}Tool.schema.safeParse(hallucinatedPayload);
     expect(validationResult.success).toBe(false);
     
     if (!validationResult.success) {
@@ -71,10 +85,10 @@ describe("${agentName} - Parameter Schema Strictness (#${traceId})", () => {
     }
 
     case "context_overflow": {
-      return `import { describe, it, expect } from "vitest";
+      return `${blueprintHeader}import { describe, it, expect } from "vitest";
 import { pruneContextWindow } from "@/lib/contextManager";
 
-describe("${agentName} - Context Overflow Guard (#${traceId})", () => {
+describe("${safeAgentName} - Context Overflow Guard (#${safeTraceId})", () => {
   it("prunes conversation messages to never exceed the 8,192 token limit", () => {
     // Arrange: Oversized synthetic message history (38,000+ tokens)
     const longDocumentChunk = "A".repeat(150000);
@@ -95,19 +109,20 @@ describe("${agentName} - Context Overflow Guard (#${traceId})", () => {
 
     case "unhandled_tool_error": {
       const errorEvent = events.find((e) => e.status === "error");
-      const faultyOp = errorEvent?.name || "upstream_api";
+      const rawFaultyOp = errorEvent?.name || "upstream_api";
+      const safeFaultyOp = rawFaultyOp.replace(/[^a-zA-Z0-9_]/g, "") || "upstream_api";
 
-      return `import { describe, it, expect, vi } from "vitest";
-import { ${agentName} } from "@/agents/${agentName.toLowerCase()}";
+      return `${blueprintHeader}import { describe, it, expect, vi } from "vitest";
+import { ${safeAgentName} } from "@/agents/${safeAgentName.toLowerCase()}";
 
-describe("${agentName} - Unhandled Error Graceful Recovery (#${traceId})", () => {
-  it("catches 500 error from '${faultyOp}' without crashing the process", async () => {
+describe("${safeAgentName} - Unhandled Error Graceful Recovery (#${safeTraceId})", () => {
+  it("catches 500 error from '${safeFaultyOp}' without crashing the process", async () => {
     // Arrange: Simulate upstream HTTP 500
     const mockFaultyApi = vi.fn().mockRejectedValue(
       new Error("UpstreamAPIError: HTTP 500 Internal Server Error")
     );
 
-    const agent = new ${agentName}({
+    const agent = new ${safeAgentName}({
       apiClient: mockFaultyApi
     });
 
@@ -126,20 +141,21 @@ describe("${agentName} - Unhandled Error Graceful Recovery (#${traceId})", () =>
 
     case "latency_stall": {
       const stallEvent = events.find((e) => e.durationMs >= 15000);
-      const toolName = stallEvent?.name || "http_fetch";
+      const rawToolName = stallEvent?.name || "http_fetch";
+      const safeToolName = rawToolName.replace(/[^a-zA-Z0-9_]/g, "") || "http_fetch";
 
-      return `import { describe, it, expect, vi } from "vitest";
-import { ${toolName}WithTimeout } from "@/lib/network";
+      return `${blueprintHeader}import { describe, it, expect, vi } from "vitest";
+import { ${safeToolName}WithTimeout } from "@/lib/network";
 
-describe("${agentName} - Operation Timeout Guard (#${traceId})", () => {
-  it("aborts '${toolName}' after 5,000ms timeout threshold", async () => {
+describe("${safeAgentName} - Operation Timeout Guard (#${safeTraceId})", () => {
+  it("aborts '${safeToolName}' after 5,000ms timeout threshold", async () => {
     vi.useFakeTimers();
 
     // Arrange: Hanging promise simulating 30s socket hang
     const hangingRequest = new Promise((resolve) => setTimeout(resolve, 30000));
     
     // Act & Assert
-    const executePromise = ${toolName}WithTimeout(() => hangingRequest, { timeoutMs: 5000 });
+    const executePromise = ${safeToolName}WithTimeout(() => hangingRequest, { timeoutMs: 5000 });
     
     vi.advanceTimersByTime(5001);
     
@@ -150,12 +166,12 @@ describe("${agentName} - Operation Timeout Guard (#${traceId})", () => {
     }
 
     default: {
-      return `import { describe, it, expect } from "vitest";
-import { ${agentName} } from "@/agents/${agentName.toLowerCase()}";
+      return `${blueprintHeader}import { describe, it, expect } from "vitest";
+import { ${safeAgentName} } from "@/agents/${safeAgentName.toLowerCase()}";
 
-describe("${agentName} - Baseline Happy Path (#${traceId})", () => {
+describe("${safeAgentName} - Baseline Happy Path (#${safeTraceId})", () => {
   it("completes full multi-step workflow without anomalies or loop faults", async () => {
-    const agent = new ${agentName}();
+    const agent = new ${safeAgentName}();
     const result = await agent.execute({
       query: "Standard operational request"
     });

@@ -1,14 +1,29 @@
 import { ReconstructedTimeline } from "@/types/schema";
 import { startGemmaInferenceSpan } from "@/lib/telemetry/sentryTracer";
 
+export interface EvidenceValidation {
+  eventReferenceValid: boolean;
+  causalClaimUnverified: boolean;
+  validEventIds: string[];
+  hallucinatedEventIds: string[];
+  humanReviewRequired: boolean;
+  warningMessage?: string;
+}
+
 export interface GemmaHypothesis {
   title: string;
   model: string;
+  provider?: "ollama" | "backboard" | "deterministic_rules";
+  executionMode?: "live_inference" | "deterministic_fallback";
+  latencyMs?: number;
+  fallbackReason?: string;
   explanation: string;
   groundedEventIds: string[];
   confidence: number;
   validationStatus: "grounded" | "unverified" | "hallucination_flagged";
   suggestedFix: string;
+  uncertaintyWarnings?: string[];
+  evidenceValidation?: EvidenceValidation;
 }
 
 export interface GemmaAdapterOptions {
@@ -47,14 +62,16 @@ export class GemmaAdapter {
   /**
    * Generates a grounded forensic hypothesis for an agent failure trace.
    * Tries Backboard -> Local Ollama -> Deterministic Fallback.
+   * Accurately attributes provider, model, executionMode, latencyMs, and fallbackReason.
    */
   async analyzeFailureTrace(
     timeline: ReconstructedTimeline
   ): Promise<GemmaHypothesis> {
     const validEventIds = new Set(timeline.events.map((e) => e.id));
     const prompt = this.buildForensicPrompt(timeline);
+    const startTime = Date.now();
 
-    const provider: "backboard" | "ollama" | "deterministic_fallback" =
+    const initialProvider: "backboard" | "ollama" | "deterministic_fallback" =
       this.backboardApiKey &&
       this.backboardApiKey !== "your_backboard_api_key_here"
         ? "backboard"
@@ -62,7 +79,7 @@ export class GemmaAdapter {
 
     return startGemmaInferenceSpan(
       this.modelName,
-      provider,
+      initialProvider,
       timeline.traceId,
       async () => {
         // 1. Try Remote Backboard API if API key is configured
@@ -74,11 +91,14 @@ export class GemmaAdapter {
             const rawResponse = await this.callBackboard(prompt);
             const parsed = this.parseModelJson(rawResponse);
             if (parsed) {
+              const latencyMs = Date.now() - startTime;
               return this.validateAndGroundHypothesis(
                 parsed,
                 validEventIds,
                 `Google Gemma 2 (Backboard: ${this.modelName})`,
-                timeline
+                timeline,
+                "backboard",
+                latencyMs
               );
             }
           } catch (err) {
@@ -94,11 +114,14 @@ export class GemmaAdapter {
           const rawOllama = await this.callOllama(prompt);
           const parsedOllama = this.parseModelJson(rawOllama);
           if (parsedOllama) {
+            const latencyMs = Date.now() - startTime;
             return this.validateAndGroundHypothesis(
               parsedOllama,
               validEventIds,
               `Google Gemma 2 (Ollama Local)`,
-              timeline
+              timeline,
+              "ollama",
+              latencyMs
             );
           }
         } catch {
@@ -106,34 +129,50 @@ export class GemmaAdapter {
         }
 
         // 3. Deterministic Fallback (Offline Mode)
-        return this.buildDeterministicFallback(timeline);
+        const latencyMs = Date.now() - startTime;
+        const fallbackReason =
+          "Live LLM unavailable (Ollama unreachable at " +
+          this.ollamaHost +
+          " and BACKBOARD_API_KEY unconfigured). Live model inference blocked.";
+        return this.buildDeterministicFallback(timeline, fallbackReason, latencyMs);
       }
     );
   }
 
   /**
-   * Strict Grounding Validator:
-   * Rejects or filters any event IDs hallucinated by the model that do not exist in the trace!
+   * Strict Grounding Validator (TASK 02.3):
+   * Rejects or flags any event IDs hallucinated by the model that do not exist in the trace!
+   * Accurately distinguishes between valid event references and unverified causal claims.
    */
   validateAndGroundHypothesis(
     candidate: Partial<GemmaHypothesis>,
     validEventIds: Set<string>,
     modelLabel: string,
-    timeline: ReconstructedTimeline
+    timeline: ReconstructedTimeline,
+    provider: "ollama" | "backboard" = "backboard",
+    latencyMs: number = 50
   ): GemmaHypothesis {
     const rawIds = Array.isArray(candidate.groundedEventIds)
       ? candidate.groundedEventIds
       : [];
 
-    // Filter out hallucinated IDs
     const verifiedIds = rawIds.filter((id) => validEventIds.has(id));
-    const hasHallucinations = rawIds.length > verifiedIds.length;
+    const hallucinatedIds = rawIds.filter((id) => !validEventIds.has(id));
+    const hasHallucinations = hallucinatedIds.length > 0;
 
-    // If model cited completely fabricated IDs, use deterministic causal IDs
+    // Check if cited events correspond to actual error/warning/anomalous operations
+    const anomalyEventIds = new Set(
+      timeline?.events
+        ?.filter((e) => e.status === "error" || e.status === "warning" || e.isCausalAnomaly)
+        ?.map((e) => e.id) || []
+    );
+    const hasUnverifiedCausalClaim = verifiedIds.some((id) => !anomalyEventIds.has(id));
+
+    // If model cited completely fabricated IDs, fall back to deterministic anomaly IDs
     const finalEventIds =
       verifiedIds.length > 0
         ? verifiedIds
-        : timeline.anomalies[0]?.groundedEventIds || [];
+        : timeline?.anomalies?.[0]?.groundedEventIds || [];
 
     const validationStatus =
       verifiedIds.length > 0
@@ -142,23 +181,47 @@ export class GemmaAdapter {
           : "grounded"
         : "hallucination_flagged";
 
+    const uncertaintyWarnings: string[] = [];
+    if (hasHallucinations) {
+      uncertaintyWarnings.push(
+        `Human Review Warning: Model cited non-existent event IDs [${hallucinatedIds.join(", ")}] not found in original trace.`
+      );
+    }
+    if (hasUnverifiedCausalClaim) {
+      uncertaintyWarnings.push(
+        "Causal Claim Unverified: Certain cited events exhibited normal (non-error) execution in timeline."
+      );
+    }
+
     return {
       title:
         candidate.title ||
-        timeline.anomalies[0]?.title ||
+        timeline?.anomalies?.[0]?.title ||
         "Grounded Failure Hypothesis",
       model: modelLabel,
+      provider,
+      executionMode: "live_inference",
+      latencyMs,
       explanation:
         candidate.explanation ||
-        timeline.anomalies[0]?.description ||
+        timeline?.anomalies?.[0]?.description ||
         "Model identified failure conditions in the execution trace.",
       groundedEventIds: finalEventIds,
       confidence: Math.min(Math.max(candidate.confidence ?? 0.85, 0.1), 1.0),
       validationStatus,
       suggestedFix:
         candidate.suggestedFix ||
-        timeline.anomalies[0]?.suggestedRemediation ||
+        timeline?.anomalies?.[0]?.suggestedRemediation ||
         "Review tool calling schema and add circuit-breaker retry limits.",
+      uncertaintyWarnings,
+      evidenceValidation: {
+        eventReferenceValid: !hasHallucinations,
+        causalClaimUnverified: hasUnverifiedCausalClaim,
+        validEventIds: verifiedIds,
+        hallucinatedEventIds: hallucinatedIds,
+        humanReviewRequired: hasHallucinations || hasUnverifiedCausalClaim,
+        warningMessage: uncertaintyWarnings.join(" | ") || undefined,
+      },
     };
   }
 
@@ -282,21 +345,44 @@ INSTRUCTIONS:
   }
 
   private buildDeterministicFallback(
-    timeline: ReconstructedTimeline
+    timeline: ReconstructedTimeline,
+    fallbackReason: string = "Live LLM unavailable (Ollama unreachable at http://127.0.0.1:11434 and BACKBOARD_API_KEY unconfigured). Live model inference blocked.",
+    latencyMs: number = 8
   ): GemmaHypothesis {
     const primary = timeline.anomalies[0];
+    const groundedIds =
+      primary?.groundedEventIds && primary.groundedEventIds.length > 0
+        ? primary.groundedEventIds
+        : timeline.events
+            .filter((e) => e.status === "error" || e.isCausalAnomaly)
+            .map((e) => e.id);
+
     return {
       title: primary?.title || "Deterministic Anomaly Diagnostic",
-      model: "Google Gemma 2 (Deterministic Grounding)",
+      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      provider: "deterministic_rules",
+      executionMode: "deterministic_fallback",
+      latencyMs,
+      fallbackReason,
       explanation:
         primary?.description ||
         "Deterministic forensic parser verified execution timeline. No causal anomalies detected.",
-      groundedEventIds: primary?.groundedEventIds || [],
+      groundedEventIds: groundedIds,
       confidence: primary ? 0.95 : 1.0,
       validationStatus: "grounded",
       suggestedFix:
         primary?.suggestedRemediation ||
         "Pipeline functioning within acceptable parameters. No remediation required.",
+      uncertaintyWarnings: [
+        "Offline Rule-Based Evaluation: Findings generated by deterministic timeline analyzer without remote LLM inference.",
+      ],
+      evidenceValidation: {
+        eventReferenceValid: true,
+        causalClaimUnverified: false,
+        validEventIds: groundedIds,
+        hallucinatedEventIds: [],
+        humanReviewRequired: false,
+      },
     };
   }
 }
