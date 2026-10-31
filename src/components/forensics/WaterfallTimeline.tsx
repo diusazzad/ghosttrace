@@ -32,7 +32,8 @@ export const WaterfallTimeline: React.FC<WaterfallTimelineProps> = ({
     setExpandedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const filteredEvents = trace.events.filter((evt) => {
+  const events = trace.events || [];
+  const filteredEvents = events.filter((evt) => {
     if (filter === "all") return true;
     if (filter === "llm") return evt.type === "llm";
     if (filter === "tool") return evt.type === "tool";
@@ -40,7 +41,7 @@ export const WaterfallTimeline: React.FC<WaterfallTimelineProps> = ({
     return true;
   });
 
-  const getEventIcon = (type: TraceEvent["type"]) => {
+  const getEventIcon = (type?: string) => {
     switch (type) {
       case "llm":
         return <Cpu className="h-3.5 w-3.5 text-blue-400" />;
@@ -50,6 +51,8 @@ export const WaterfallTimeline: React.FC<WaterfallTimelineProps> = ({
         return <Database className="h-3.5 w-3.5 text-amber-400" />;
       case "error":
         return <AlertOctagon className="h-3.5 w-3.5 text-rose-400" />;
+      default:
+        return <Database className="h-3.5 w-3.5 text-gray-400" />;
     }
   };
 
@@ -68,11 +71,11 @@ export const WaterfallTimeline: React.FC<WaterfallTimelineProps> = ({
       case "state":
         return "bg-amber-400 shadow-amber-400/20";
       default:
-        return "bg-gray-500";
+        return "bg-emerald-500 shadow-emerald-500/20";
     }
   };
 
-  const totalTime = Math.max(trace.totalDurationMs, 1);
+  const totalTime = Math.max(trace.totalDurationMs || 1, 1);
 
   return (
     <div className="rounded-xl border border-gray-800 bg-[#0d1117] overflow-hidden flex flex-col shadow-xl">
@@ -130,8 +133,10 @@ export const WaterfallTimeline: React.FC<WaterfallTimelineProps> = ({
             {filteredEvents.map((evt) => {
               const isSelected = selectedEventId === evt.id;
               const isExpanded = !!expandedEvents[evt.id];
-              const leftPercent = Math.min((evt.startTimeMs / totalTime) * 100, 98);
-              const widthPercent = Math.max((evt.durationMs / totalTime) * 100, 2);
+              const startTimeMs = typeof evt.startTimeMs === "number" && !isNaN(evt.startTimeMs) ? evt.startTimeMs : 0;
+              const durationMs = typeof evt.durationMs === "number" && !isNaN(evt.durationMs) ? evt.durationMs : 10;
+              const leftPercent = Math.min(Math.max((startTimeMs / totalTime) * 100, 0), 98);
+              const widthPercent = Math.max(Math.min((durationMs / totalTime) * 100, 100 - leftPercent), 2);
 
               return (
                 <div
@@ -170,97 +175,87 @@ export const WaterfallTimeline: React.FC<WaterfallTimelineProps> = ({
                             {evt.name}
                           </span>
                           {evt.isCausalAnomaly && (
-                            <span className="shrink-0 text-[9px] font-mono px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-0.5">
-                              <Sparkles className="h-2 w-2" />
-                              <span>CAUSE</span>
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0 flex items-center gap-0.5">
+                              <Sparkles className="h-2.5 w-2.5" />
+                              <span>Anomaly</span>
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] font-mono text-gray-500">#{evt.id}</span>
+                        <span className="text-[10px] font-mono text-gray-500 truncate">
+                          #{evt.id}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Duration */}
+                    {/* Duration & Tokens */}
                     <div className="col-span-2 sm:col-span-2 text-right pr-4 font-mono text-[11px] text-gray-400">
-                      {evt.durationMs}ms
+                      <div>{durationMs}ms</div>
+                      {evt.tokens && (
+                        <div className="text-[9px] text-gray-500">
+                          {evt.tokens.total} tok
+                        </div>
+                      )}
                     </div>
 
-                    {/* Waterfall Visual Bar */}
-                    <div className="col-span-5 sm:col-span-6 relative h-6 flex items-center">
-                      {/* Subtle Grid Track */}
-                      <div className="absolute inset-0 border-x border-gray-800/40 pointer-events-none" />
-
-                      {/* Offset Bar */}
+                    {/* Visual Gantt Bar */}
+                    <div className="col-span-5 sm:col-span-6 relative h-6 flex items-center bg-[#0a0d13]/60 rounded border border-gray-800/40 px-1 overflow-hidden">
                       <div
                         style={{
                           left: `${leftPercent}%`,
                           width: `${widthPercent}%`,
                         }}
-                        className={`absolute h-4 rounded-sm shadow-sm transition-all duration-300 flex items-center px-1.5 ${getBarColor(
+                        className={`absolute h-3.5 rounded transition-all duration-300 shadow-sm ${getBarColor(
                           evt
                         )}`}
-                      >
-                        <span className="text-[9px] font-mono font-bold text-white/90 drop-shadow truncate">
-                          {evt.durationMs > 150 ? `${evt.durationMs}ms` : ""}
-                        </span>
-                      </div>
+                      />
                     </div>
                   </div>
 
-                  {/* Expanded JSON Inspector Drawer */}
+                  {/* Expanded Inspector Drawer */}
                   {isExpanded && (
-                    <div className="px-10 pb-4 pt-1 bg-black/40 text-[11px] font-mono border-t border-gray-800/40 flex flex-col gap-2">
-                      {evt.input && (
-                        <div>
-                          <div className="text-gray-500 text-[10px] uppercase font-semibold mb-1">
-                            Input Payload:
-                          </div>
-                          <pre className="p-2.5 rounded bg-[#161b22] border border-gray-800 text-gray-300 overflow-x-auto">
-                            {typeof evt.input === "string"
-                              ? evt.input
-                              : JSON.stringify(evt.input, null, 2)}
-                          </pre>
-                        </div>
-                      )}
+                    <div className="px-10 py-3 bg-black/40 border-t border-gray-800/50 text-[11px] font-mono text-gray-300 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Input Payload */}
+                      <div>
+                        <span className="text-gray-500 uppercase tracking-wider block mb-1">
+                          Input Payload
+                        </span>
+                        <pre className="p-2 rounded bg-[#0a0d13] border border-gray-800/80 overflow-x-auto text-gray-400 max-h-36">
+                          {evt.input
+                            ? JSON.stringify(evt.input, null, 2)
+                            : "// No input payload recorded"}
+                        </pre>
+                      </div>
 
-                      {evt.output && (
-                        <div>
-                          <div className="text-gray-500 text-[10px] uppercase font-semibold mb-1">
-                            Output Result:
-                          </div>
-                          <pre className="p-2.5 rounded bg-[#161b22] border border-gray-800 text-gray-300 overflow-x-auto">
-                            {typeof evt.output === "string"
-                              ? evt.output
-                              : JSON.stringify(evt.output, null, 2)}
-                          </pre>
-                        </div>
-                      )}
-
-                      {evt.error && (
-                        <div>
-                          <div className="text-rose-400 text-[10px] uppercase font-semibold mb-1">
-                            Captured Exception:
-                          </div>
-                          <div className="p-2.5 rounded bg-rose-950/30 border border-rose-800/50 text-rose-300">
-                            {evt.error}
-                          </div>
-                        </div>
-                      )}
-
-                      {evt.tokens && (
-                        <div className="flex items-center gap-4 text-gray-400 text-[10px]">
-                          <span>Prompt Tokens: {evt.tokens.prompt}</span>
-                          <span>Completion: {evt.tokens.completion}</span>
-                          <span className="text-purple-400 font-semibold">
-                            Total: {evt.tokens.total}
-                          </span>
-                        </div>
-                      )}
+                      {/* Output Payload / Error */}
+                      <div>
+                        <span className="text-gray-500 uppercase tracking-wider block mb-1">
+                          {evt.error ? "Error Traceback" : "Output Result"}
+                        </span>
+                        <pre
+                          className={`p-2 rounded border overflow-x-auto max-h-36 ${
+                            evt.error
+                              ? "bg-rose-950/20 border-rose-800/40 text-rose-300"
+                              : "bg-[#0a0d13] border-gray-800/80 text-gray-400"
+                          }`}
+                        >
+                          {evt.error
+                            ? evt.error
+                            : evt.output
+                            ? JSON.stringify(evt.output, null, 2)
+                            : "// No output payload recorded"}
+                        </pre>
+                      </div>
                     </div>
                   )}
                 </div>
               );
             })}
+
+            {filteredEvents.length === 0 && (
+              <div className="p-8 text-center text-xs text-gray-500">
+                No events matched the current filter.
+              </div>
+            )}
           </div>
         </div>
       </div>
