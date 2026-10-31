@@ -9,6 +9,9 @@ import {
   Sparkles,
   Shield,
   CheckCircle,
+  Menu,
+  X,
+  Ghost,
 } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
@@ -32,6 +35,8 @@ interface HeaderProps {
   onUltramarineClick?: () => void;
   isAnalyzingUltramarine?: boolean;
   authState?: AuthStateDTO;
+  onToggleMobileMenu?: () => void;
+  isMobileMenuOpen?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,12 +49,33 @@ export const Header: React.FC<HeaderProps> = ({
   onUltramarineClick,
   isAnalyzingUltramarine = false,
   authState,
+  onToggleMobileMenu,
+  isMobileMenuOpen = false,
 }) => {
   return (
-    <header className="h-16 border-b border-gray-800/80 bg-[#0d1117]/80 backdrop-blur px-6 flex items-center justify-between sticky top-0 z-40">
-      {/* Left: Active Run Selector & Search */}
-      <div className="flex items-center gap-4 flex-1 max-w-xl">
-        <div className="relative flex-1">
+    <header className="h-16 border-b border-gray-800/80 bg-[#0d1117]/95 backdrop-blur px-3 sm:px-6 flex items-center justify-between sticky top-0 z-40 gap-2 sm:gap-4">
+      {/* Left: Mobile Toggle, Brand & Trace Selector */}
+      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl">
+        {/* Mobile Navigation Drawer Toggle Button */}
+        {onToggleMobileMenu && (
+          <button
+            onClick={onToggleMobileMenu}
+            aria-label={isMobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="lg:hidden p-1.5 rounded-lg border border-gray-800 bg-[#161b22] text-gray-300 hover:text-white hover:bg-gray-800 transition shrink-0"
+          >
+            {isMobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </button>
+        )}
+
+        {/* Compact Mobile Brand Icon */}
+        <div className="flex items-center gap-2 lg:hidden shrink-0">
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-md shadow-purple-500/20">
+            <Ghost className="h-4 w-4 text-white" />
+          </div>
+        </div>
+
+        {/* Search Bar (Hidden on phone, visible on tablet & desktop) */}
+        <div className="relative hidden md:flex flex-1 max-w-xs xl:max-w-md">
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
           <input
             type="text"
@@ -59,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
           />
         </div>
 
-        {/* Trace Dropdown */}
+        {/* Trace Dropdown Selector */}
         <select
           value={activeTrace.id}
           aria-label="Select agent trace for forensic analysis"
@@ -67,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
             const selected = traces.find((t) => t.id === e.target.value);
             if (selected) onSelectTrace(selected);
           }}
-          className="bg-[#161b22] border border-gray-800 text-gray-200 text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-purple-500"
+          className="bg-[#161b22] border border-gray-800 text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-purple-500 max-w-[130px] sm:max-w-[200px] md:max-w-xs truncate shrink-0"
         >
           {traces.map((trace) => (
             <option key={trace.id} value={trace.id}>
@@ -77,15 +103,18 @@ export const Header: React.FC<HeaderProps> = ({
         </select>
       </div>
 
-      {/* Right: Actions */}
-      <div className="flex items-center gap-3">
+      {/* Right: Actions, Sentry Agent Tracing & Auth0 Log In Cluster */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Upload Custom Trace */}
         <button
           onClick={onUploadClick}
           aria-label="Upload custom trace JSON"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/60 hover:bg-gray-800 text-gray-200 text-xs transition"
+          title="Upload custom trace JSON"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/60 hover:bg-gray-800 text-gray-200 text-xs transition"
         >
-          <Upload className="h-3.5 w-3.5" />
-          <span>Upload Trace</span>
+          <Upload className="h-3.5 w-3.5 shrink-0" />
+          <span className="hidden xl:inline">Upload Trace</span>
+          <span className="hidden sm:inline xl:hidden">Upload</span>
         </button>
 
         {/* Mastra + Gemma Investigation */}
@@ -93,13 +122,15 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={onAnalyzeClick}
           disabled={isAnalyzing || isAnalyzingUltramarine}
           aria-label="Run Mastra and Gemma investigation"
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-medium shadow-lg shadow-purple-600/20 transition disabled:opacity-50"
+          title="Run sequential forensic pipeline powered by Mastra Core and Google Gemma 2"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-medium shadow-md shadow-purple-600/20 transition disabled:opacity-50"
         >
-          <Cpu className={`h-3.5 w-3.5 ${isAnalyzing ? "animate-spin" : ""}`} />
-          <span>
-            {isAnalyzing
-              ? "Executing Mastra Workflow..."
-              : "Run (Mastra + Gemma)"}
+          <Cpu className={`h-3.5 w-3.5 shrink-0 ${isAnalyzing ? "animate-spin" : ""}`} />
+          <span className="hidden xl:inline">
+            {isAnalyzing ? "Executing..." : "Run (Mastra + Gemma)"}
+          </span>
+          <span className="hidden sm:inline xl:hidden">
+            {isAnalyzing ? "..." : "Mastra"}
           </span>
         </button>
 
@@ -109,83 +140,70 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onUltramarineClick}
             disabled={isAnalyzing || isAnalyzingUltramarine}
             aria-label="Analyze trace with Paper Instruments Ultramarine-1-Flash"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-medium shadow-lg shadow-cyan-600/20 transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-medium shadow-md shadow-cyan-600/20 transition disabled:opacity-50"
             title="Analyze trace with Paper Instruments Ultramarine-1-Flash"
           >
             <Sparkles
-              className={`h-3.5 w-3.5 ${
+              className={`h-3.5 w-3.5 shrink-0 ${
                 isAnalyzingUltramarine ? "animate-spin" : ""
               }`}
             />
-            <span>
+            <span className="hidden xl:inline">
               {isAnalyzingUltramarine
                 ? "Calling Ultramarine..."
                 : "Run with Ultramarine"}
             </span>
+            <span className="hidden sm:inline xl:hidden">
+              {isAnalyzingUltramarine ? "..." : "Ultramarine"}
+            </span>
           </button>
         )}
 
-        <div className="h-4 w-px bg-gray-800" />
-
-        {/* Sentry Agent Tracing Live Status Indicator */}
-        <div
-          className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-300 border border-purple-500/20"
-          title="Sentry Agent Tracing instrumenting OpenTelemetry gen_ai spans & breadcrumbs"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse" />
-          <span>Sentry: Agent Tracing</span>
-        </div>
-
-        {/* Auth0 Authentication State Badge */}
-        {authState?.isConfigured ? (
-          <div className="flex items-center gap-2 pl-2 border-l border-gray-800">
-            {authState.isAuthenticated && authState.user ? (
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex items-center gap-1.5 text-xs text-gray-300 bg-gray-800/60 px-2.5 py-1 rounded-lg border border-gray-700"
-                  title={`Logged in as ${authState.user.email || authState.user.userId}`}
-                >
-                  <Shield className="h-3.5 w-3.5 text-emerald-400" />
-                  <span className="max-w-[100px] truncate font-medium">
-                    {authState.user.name || authState.user.email || "Investigator"}
-                  </span>
-                  <CheckCircle className="h-3 w-3 text-emerald-400" />
-                </div>
-                <a
-                  href="/auth/logout"
-                  className="text-[11px] text-gray-400 hover:text-red-400 transition"
-                >
-                  Logout
-                </a>
-              </div>
-            ) : (
-              <a
-                href="/auth/login"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium transition shadow-md shadow-purple-600/20"
-              >
-                <Shield className="h-3.5 w-3.5" />
-                <span>Log in</span>
-              </a>
-            )}
+        {/* UNIFIED OBSERVABILITY & IDENTITY CLUSTER (SENTRY + AUTH0) */}
+        <div className="flex items-center gap-1 sm:gap-1.5 p-1 rounded-lg bg-[#161b22] border border-purple-500/30 shadow-sm shrink-0">
+          {/* Sentry Agent Tracing Live Status Indicator */}
+          <div
+            className="flex items-center gap-1.5 text-[11px] font-mono px-2 py-1 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20 shrink-0"
+            title="Sentry Agent Tracing instrumenting OpenTelemetry gen_ai spans & breadcrumbs"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />
+            <span className="hidden sm:inline">Sentry:</span>
+            <span>Tracing</span>
           </div>
-        ) : (
-          <div className="flex items-center gap-2 pl-2 border-l border-gray-800">
-            <div
-              className="flex items-center gap-1.5 text-[11px] font-mono px-2.5 py-1 rounded-md bg-gray-800/60 text-gray-400 border border-gray-700/60"
-              title="Auth0 Authentication (Universal Login Ready)"
-            >
-              <Shield className="h-3.5 w-3.5 text-purple-400" />
-              <span>Auth0: Guest</span>
+
+          {/* Auth0 Authentication State Badge & Login / Logout Button */}
+          {authState?.isAuthenticated && authState.user ? (
+            <div className="flex items-center gap-1.5">
+              <div
+                className="flex items-center gap-1 text-xs text-gray-200 bg-gray-800/80 px-2 py-1 rounded border border-gray-700 font-medium"
+                title={`Logged in as ${authState.user.email || authState.user.userId}`}
+              >
+                <Shield className="h-3 w-3 text-emerald-400 shrink-0" />
+                <span className="max-w-[70px] sm:max-w-[100px] truncate">
+                  {authState.user.name || authState.user.email || "Investigator"}
+                </span>
+                <CheckCircle className="h-3 w-3 text-emerald-400 shrink-0" />
+              </div>
+              <a
+                href="/auth/logout"
+                className="text-[10px] text-gray-400 hover:text-red-400 px-1 py-0.5 rounded transition font-medium"
+                title="Sign out of Auth0"
+              >
+                Logout
+              </a>
             </div>
+          ) : (
             <a
               href="/auth/login"
-              className="text-[11px] text-purple-400 hover:text-purple-300 transition font-medium"
-              title="Authenticate with Auth0"
+              id="header-auth0-login-btn"
+              className="flex items-center gap-1.5 px-3 py-1 rounded bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-purple-600/30 transition shrink-0"
+              title="Authenticate with Auth0 Universal Login"
             >
-              Log in
+              <Shield className="h-3.5 w-3.5 text-white shrink-0" />
+              <span>Log in</span>
             </a>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );
