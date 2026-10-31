@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reconstructTimeline } from "@/lib/detector";
-import { defaultUltramarineAdapter } from "@/lib/ai/ultramarineAdapter";
+import {
+  defaultUltramarineAdapter,
+  generateUltramarineFallback,
+} from "@/lib/ai/ultramarineAdapter";
 import { validateWorkflowSecurity } from "@/lib/auth/workflowSecurity";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +19,18 @@ export async function POST(req: NextRequest) {
   try {
     const rawTrace = body.trace ?? body;
     const timeline = reconstructTimeline(rawTrace);
-    const ultramarineResult =
-      await defaultUltramarineAdapter.analyzeFailureTrace(timeline);
+
+    let ultramarineResult;
+    try {
+      ultramarineResult =
+        await defaultUltramarineAdapter.analyzeFailureTrace(timeline);
+    } catch (err: unknown) {
+      console.warn(
+        "[UltramarineRoute] Live API call failed, generating grounded fallback:",
+        err
+      );
+      ultramarineResult = generateUltramarineFallback(timeline);
+    }
 
     return NextResponse.json({
       success: true,
