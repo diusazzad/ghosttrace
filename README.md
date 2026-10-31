@@ -14,7 +14,17 @@
 [![Auth0](https://img.shields.io/badge/Auth0-Multi--Tenant%20Guard-EB5424?style=flat-square&logo=auth0)](https://auth0.com/)
 [![Render](https://img.shields.io/badge/Live%20Deploy-Render%20Production-46E3B7?style=flat-square&logo=render)](https://ghosttrace-s26u.onrender.com/)
 
-🌐 **Live Production Deployment:** [https://ghosttrace-s26u.onrender.com/](https://ghosttrace-s26u.onrender.com/)
+🌐 **Live Production Deployment:** [https://ghosttrace-s26u.onrender.com/](https://ghosttrace-s26u.onrender.com/)  
+🎥 **Product Video Walkthrough:** [Watch on YouTube (2 min)](https://youtu.be/Lsngt5w0O3k)  
+📝 **DEV Challenge Article:** [Read the Official Submission](https://dev.to/diusazzad/ghosttrace-forensic-autopsy-counterfactual-debugger-for-autonomous-ai-agents-59f5)
+
+---
+
+## 🎥 Video Walkthrough
+
+[![GhostTrace Product Walkthrough](https://img.youtube.com/vi/Lsngt5w0O3k/maxresdefault.jpg)](https://youtu.be/Lsngt5w0O3k)
+
+> 📺 **Click to watch the full demo on YouTube:** [https://youtu.be/Lsngt5w0O3k](https://youtu.be/Lsngt5w0O3k)
 
 ---
 
