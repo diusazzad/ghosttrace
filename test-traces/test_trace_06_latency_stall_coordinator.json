@@ -1,0 +1,64 @@
+{
+  "id": "trace-custom-latency-stall-006",
+  "agentName": "WorkflowCoordinatorAgent",
+  "failureCategory": "latency_stall",
+  "failureDescription": "Coordinator agent stalled for 12,000ms waiting for asynchronous worker heartbeat that silently dropped.",
+  "startedAt": "2026-10-31T21:15:00.000Z",
+  "totalDurationMs": 12450,
+  "totalTokens": 520,
+  "estimatedCostUsd": 0.0015,
+  "status": "failed",
+  "isSampleFixture": false,
+  "events": [
+    {
+      "id": "evt_601",
+      "name": "dispatch_worker_subtask",
+      "type": "tool",
+      "startTimeMs": 0,
+      "durationMs": 45,
+      "status": "success",
+      "input": {
+        "subtaskId": "task_worker_771"
+      },
+      "output": {
+        "dispatched": true
+      }
+    },
+    {
+      "id": "evt_602",
+      "name": "poll_worker_heartbeat_loop",
+      "type": "tool",
+      "startTimeMs": 50,
+      "durationMs": 12200,
+      "status": "warning",
+      "error": "LatencyThresholdWarning: Worker did not reply within SLA (timeout: 10000ms, elapsed: 12200ms)",
+      "isCausalAnomaly": true
+    },
+    {
+      "id": "evt_603",
+      "name": "coordinator_timeout_abort",
+      "type": "error",
+      "startTimeMs": 12300,
+      "durationMs": 150,
+      "status": "error",
+      "error": "ExecutionStalledError: Global workflow SLA budget (10s) breached without failover routing",
+      "isCausalAnomaly": true
+    }
+  ],
+  "hypothesis": {
+    "title": "Latency Stall: Worker Subtask Unresponsive for 12.2s",
+    "model": "Rule-Based Deterministic Grounding Engine",
+    "provider": "deterministic_rules",
+    "executionMode": "deterministic_fallback",
+    "latencyMs": 4,
+    "explanation": "At evt_602, the coordinator polled an unresponsive worker for 12,200ms without a circuit breaker or fallback worker re-assignment.",
+    "groundedEventIds": [
+      "evt_602",
+      "evt_603"
+    ],
+    "confidence": 0.95,
+    "validationStatus": "grounded",
+    "suggestedFix": "Configure Temporal durable activity timeout with 5s max heartbeat and automatic re-routing to an active standby worker."
+  },
+  "generatedTestCode": "// Vitest Latency Circuit Breaker Test\nimport { describe, it, expect } from 'vitest';\n\ndescribe('WorkflowCoordinatorAgent - Timeout Circuit Breaker', () => {\n  it('triggers standby failover after 5000ms without heartbeat', () => {\n    const timeoutMs = 5000;\n    const elapsedMs = 6200;\n    const shouldFailover = elapsedMs > timeoutMs;\n    expect(shouldFailover).toBe(true);\n  });\n});"
+}

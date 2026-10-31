@@ -1,0 +1,80 @@
+{
+  "id": "trace-custom-sql-hallucination-003",
+  "agentName": "DataAnalyticsCopilot",
+  "failureCategory": "parameter_hallucination",
+  "failureDescription": "Agent hallucinated non-existent database column `internal_user_credit_score` in execute_sql_query causing syntax error.",
+  "startedAt": "2026-10-31T19:45:00.000Z",
+  "totalDurationMs": 1890,
+  "totalTokens": 1980,
+  "estimatedCostUsd": 0.0059,
+  "status": "failed",
+  "isSampleFixture": false,
+  "events": [
+    {
+      "id": "evt_301",
+      "name": "receive_natural_language_prompt",
+      "type": "state",
+      "startTimeMs": 0,
+      "durationMs": 15,
+      "status": "success",
+      "input": {
+        "userPrompt": "Show me top 10 users ranked by internal credit score for Q3"
+      }
+    },
+    {
+      "id": "evt_302",
+      "name": "llm_synthesize_sql_query",
+      "type": "llm",
+      "startTimeMs": 20,
+      "durationMs": 820,
+      "status": "success",
+      "tokens": {
+        "prompt": 1400,
+        "completion": 220,
+        "total": 1620
+      },
+      "output": {
+        "generatedSql": "SELECT user_id, email, internal_user_credit_score FROM analytics.users WHERE quarter = 'Q3' ORDER BY internal_user_credit_score DESC LIMIT 10;"
+      }
+    },
+    {
+      "id": "evt_303",
+      "name": "execute_sql_query",
+      "type": "tool",
+      "startTimeMs": 850,
+      "durationMs": 990,
+      "status": "error",
+      "error": "PostgresQueryError: column \"internal_user_credit_score\" does not exist at character 31. Available columns in analytics.users: [user_id, email, credit_limit_usd, risk_rating, created_at]",
+      "isCausalAnomaly": true,
+      "input": {
+        "query": "SELECT user_id, email, internal_user_credit_score FROM analytics.users..."
+      }
+    },
+    {
+      "id": "evt_304",
+      "name": "execution_aborted_syntax_error",
+      "type": "error",
+      "startTimeMs": 1850,
+      "durationMs": 40,
+      "status": "error",
+      "error": "AgentTerminated: Query execution rejected by database catalog schema validator",
+      "isCausalAnomaly": true
+    }
+  ],
+  "hypothesis": {
+    "title": "Parameter Hallucination: Column internal_user_credit_score Missing",
+    "model": "Rule-Based Deterministic Grounding Engine",
+    "provider": "deterministic_rules",
+    "executionMode": "deterministic_fallback",
+    "latencyMs": 3,
+    "explanation": "At evt_302 the LLM generated SQL referencing `internal_user_credit_score` which was not present in the verified table schema. The query failed at evt_303 with column non-existence error.",
+    "groundedEventIds": [
+      "evt_303",
+      "evt_304"
+    ],
+    "confidence": 0.98,
+    "validationStatus": "grounded",
+    "suggestedFix": "Ground SQL generation with strict Information Schema DDL context and run client-side column validation against schema before sending query to database."
+  },
+  "generatedTestCode": "// Vitest Schema Grounding Test\nimport { describe, it, expect } from 'vitest';\n\ndescribe('DataAnalyticsCopilot - Schema Validation Safeguard', () => {\n  it('rejects hallucinated column before running SQL execution', () => {\n    const validColumns = ['user_id', 'email', 'credit_limit_usd', 'risk_rating', 'created_at'];\n    const requestedColumn = 'internal_user_credit_score';\n    const isValid = validColumns.includes(requestedColumn);\n    expect(isValid).toBe(false);\n  });\n});"
+}

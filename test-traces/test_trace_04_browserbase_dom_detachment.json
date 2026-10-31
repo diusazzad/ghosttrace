@@ -1,0 +1,74 @@
+{
+  "id": "trace-custom-browserbase-detach-004",
+  "agentName": "CheckoutAutomationAgent",
+  "failureCategory": "unhandled_tool_error",
+  "failureDescription": "Browserbase session crashed due to DOM FrameDetachedError during iframe payment submission.",
+  "startedAt": "2026-10-31T20:10:00.000Z",
+  "totalDurationMs": 2450,
+  "totalTokens": 890,
+  "estimatedCostUsd": 0.0026,
+  "status": "failed",
+  "isSampleFixture": false,
+  "events": [
+    {
+      "id": "evt_401",
+      "name": "browserbase_create_session",
+      "type": "tool",
+      "startTimeMs": 0,
+      "durationMs": 420,
+      "status": "success",
+      "output": {
+        "sessionId": "ssn_bb_custom_9941",
+        "status": "RUNNING"
+      }
+    },
+    {
+      "id": "evt_402",
+      "name": "navigate_to_checkout_page",
+      "type": "tool",
+      "startTimeMs": 430,
+      "durationMs": 810,
+      "status": "success",
+      "output": {
+        "url": "https://store.example.com/checkout",
+        "httpStatus": 200
+      }
+    },
+    {
+      "id": "evt_403",
+      "name": "browserbase_click_payment_iframe",
+      "type": "tool",
+      "startTimeMs": 1250,
+      "durationMs": 1140,
+      "status": "error",
+      "error": "BrowserbaseProtocolError: Target.detachedFromTarget: Frame detached while waiting for selector #secure-pay-btn inside iframe.stripe-elements",
+      "isCausalAnomaly": true
+    },
+    {
+      "id": "evt_404",
+      "name": "session_execution_crash",
+      "type": "error",
+      "startTimeMs": 2400,
+      "durationMs": 50,
+      "status": "error",
+      "error": "UnhandledDOMException: FrameDetachedError terminating web automation run",
+      "isCausalAnomaly": true
+    }
+  ],
+  "hypothesis": {
+    "title": "Browserbase Tool Crash: FrameDetachedError in Payment Iframe",
+    "model": "Rule-Based Deterministic Grounding Engine",
+    "provider": "deterministic_rules",
+    "executionMode": "deterministic_fallback",
+    "latencyMs": 3,
+    "explanation": "At evt_403 Browserbase attempted to click #secure-pay-btn in an iframe that re-rendered and detached from the DOM tree before the click event was dispatched.",
+    "groundedEventIds": [
+      "evt_403",
+      "evt_404"
+    ],
+    "confidence": 0.95,
+    "validationStatus": "grounded",
+    "suggestedFix": "Implement waitForSelector with frame re-attachment recovery logic before clicking embedded checkout iframes."
+  },
+  "generatedTestCode": "// Vitest Browserbase DOM Resilience Test\nimport { describe, it, expect } from 'vitest';\n\ndescribe('CheckoutAutomationAgent - Frame Detachment Recovery', () => {\n  it('detects detached frame and retries iframe resolution gracefully', async () => {\n    let frameAttached = false;\n    const retryFrame = () => {\n      frameAttached = true;\n      return frameAttached;\n    };\n    expect(retryFrame()).toBe(true);\n  });\n});"
+}
