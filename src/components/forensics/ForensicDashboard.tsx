@@ -25,6 +25,7 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
   const [isAnalyzingUltramarine, setIsAnalyzingUltramarine] =
     useState<boolean>(false);
   const [ultramarineError, setUltramarineError] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   const handleSelectTrace = (trace: TraceRun) => {
     setActiveTrace(trace);
@@ -137,16 +138,21 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
 
   return (
     <div className="flex min-h-screen bg-[#0a0d13] text-gray-100 font-sans antialiased selection:bg-purple-600/30 selection:text-purple-200">
-      {/* Left Sidebar */}
+      {/* Left Sidebar (Desktop fixed + Mobile slide-over drawer) */}
       <Sidebar
         currentTab={currentTab}
-        onTabChange={setCurrentTab}
+        onTabChange={(tab) => {
+          setCurrentTab(tab);
+          setIsMobileMenuOpen(false);
+        }}
         sampleCount={traces.length}
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
       />
 
       {/* Main Forensic Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Sticky Header */}
+        {/* Top Sticky Responsive Header */}
         <Header
           traces={traces}
           activeTrace={activeTrace}
@@ -157,10 +163,12 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
           onUltramarineClick={handleRunUltramarine}
           isAnalyzingUltramarine={isAnalyzingUltramarine}
           authState={authState}
+          onToggleMobileMenu={() => setIsMobileMenuOpen((prev) => !prev)}
+          isMobileMenuOpen={isMobileMenuOpen}
         />
 
         {/* Dynamic Body Content by Tab */}
-        <main className="flex-1 p-6 flex flex-col gap-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3 sm:p-4 lg:p-6 flex flex-col gap-4 sm:gap-6 max-w-7xl w-full mx-auto">
           {/* Ultramarine Error Notification */}
           {ultramarineError && (
             <div className="p-3.5 rounded-lg bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between shadow-lg">
@@ -207,7 +215,7 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
                 </div>
 
                 {/* Right 5 Cols: Gemma 2 Hypothesis & Test Generator */}
-                <div className="lg:col-span-5 flex flex-col gap-6 sticky top-20">
+                <div className="lg:col-span-5 flex flex-col gap-6 lg:sticky lg:top-20">
                   <EvidenceHypothesisCard
                     trace={activeTrace}
                     selectedEventId={selectedEventId}
