@@ -1,3 +1,5 @@
+import type { UltramarineInvestigationResult } from "@/lib/ai/ultramarineAdapter";
+
 export type TraceEventType = "llm" | "tool" | "state" | "error";
 
 export interface TraceEvent {
@@ -32,16 +34,36 @@ export interface EvidenceValidationInfo {
   eventReferenceValid: boolean;
   causalClaimUnverified: boolean;
   validEventIds: string[];
-  hallucinatedEventIds: string[];
+  hallucinatedEventIds?: string[];
+  unsupportedEventIds?: string[];
   humanReviewRequired: boolean;
   warningMessage?: string;
+}
+
+export interface TraceHypothesisCost {
+  uncachedInputTokens?: number | null;
+  cachedInputTokens?: number | null;
+  completionTokens?: number | null;
+  totalTokens?: number | null;
+  costUsd?: number | null;
+  isEstimated?: boolean;
+  isKnown?: boolean;
+  formula?: string;
 }
 
 export interface TraceHypothesis {
   title: string;
   model: string;
-  provider?: "ollama" | "backboard" | "deterministic_rules";
-  executionMode?: "live_inference" | "deterministic_fallback";
+  provider?:
+    | "ollama"
+    | "backboard"
+    | "deterministic_rules"
+    | "gemini"
+    | "paperinstruments"
+    | "ultramarine"
+    | "deterministic"
+    | "mock";
+  executionMode?: "live_inference" | "deterministic_fallback" | "replay";
   latencyMs?: number;
   fallbackReason?: string;
   explanation: string;
@@ -51,6 +73,14 @@ export interface TraceHypothesis {
   suggestedFix: string;
   uncertaintyWarnings?: string[];
   evidenceValidation?: EvidenceValidationInfo;
+  cost?: TraceHypothesisCost;
+  tokenUsage?: {
+    promptTokens: number | null;
+    completionTokens: number | null;
+    totalTokens: number | null;
+    cachedPromptTokens?: number | null;
+  } | null;
+  requestId?: string;
 }
 
 export interface TraceRun {
@@ -75,4 +105,26 @@ export interface TraceRun {
   generatedTestCode: string;
   mastraSteps?: MastraWorkflowStepInfo[];
   workflowEngine?: string;
+  ultramarineInvestigation?: UltramarineInvestigationResult;
+}
+
+export type AgentTrace = TraceRun;
+
+export interface MastraWorkflowOutput {
+  status: "success" | "failed";
+  durationMs: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  workflowEngine: string;
+  steps: MastraWorkflowStepInfo[];
+  hypothesis: TraceHypothesis;
+  generatedTestCode: string;
+  deterministicFallbackUsed: boolean;
+  provider?: string;
+  model?: string;
+  executionMode?: string;
+  evidenceValidation?: EvidenceValidationInfo;
+  cost?: TraceHypothesisCost;
+  requestId?: string;
+  ultramarineInvestigation?: UltramarineInvestigationResult;
 }
