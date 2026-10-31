@@ -46,7 +46,7 @@ export function isValidAuth0Domain(domain: string | undefined): boolean {
  * Checks whether Auth0 v4 environment variables are configured with valid values.
  * In SDK v4:
  * - AUTH0_DOMAIN must be a scheme-less hostname.
- * - APP_BASE_URL is the primary app origin setting.
+ * - APP_BASE_URL or AUTH0_BASE_URL is the primary app origin setting.
  * - AUTH0_ISSUER_BASE_URL alone is not accepted as v4 configuration.
  */
 export function isAuth0Configured(): boolean {
@@ -54,7 +54,7 @@ export function isAuth0Configured(): boolean {
   const clientId = process.env.AUTH0_CLIENT_ID;
   const clientSecret = process.env.AUTH0_CLIENT_SECRET;
   const secret = process.env.AUTH0_SECRET;
-  const appBaseUrl = process.env.APP_BASE_URL || process.env.AUTH0_BASE_URL;
+  const appBaseUrl = (process.env.APP_BASE_URL || process.env.AUTH0_BASE_URL)?.trim().replace(/\/+$/, "");
 
   if (!isValidAuth0Domain(domain)) {
     return false;
@@ -113,7 +113,7 @@ export function getAuth0Client(): Auth0Client {
     const clientId = process.env.AUTH0_CLIENT_ID!.trim();
     const clientSecret = process.env.AUTH0_CLIENT_SECRET!.trim();
     const secret = process.env.AUTH0_SECRET!.trim();
-    const appBaseUrl = (process.env.APP_BASE_URL || process.env.AUTH0_BASE_URL)!.trim();
+    const appBaseUrl = (process.env.APP_BASE_URL || process.env.AUTH0_BASE_URL)!.trim().replace(/\/+$/, "");
 
     auth0Instance = new Auth0Client({
       domain,
@@ -164,3 +164,5 @@ export async function getServerSession(req?: NextRequest): Promise<VerifiedUserS
     return null;
   }
 }
+
+export const getVerifiedUserSession = getServerSession;

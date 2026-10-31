@@ -357,7 +357,7 @@ INSTRUCTIONS:
 
     return {
       title: primary?.title || "Deterministic Anomaly Diagnostic",
-      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      model: "Google Gemma 2 (Deterministic Grounding Mode)",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs,

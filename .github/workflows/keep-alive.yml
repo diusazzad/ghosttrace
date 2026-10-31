@@ -1,0 +1,15 @@
+name: Render Warm-Up Keep-Alive
+
+on:
+  schedule:
+    # Run every 10 minutes to prevent Render free-tier cold sleep
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping GhostTrace Production Health Endpoint
+        run: |
+          curl -s -f -m 30 https://ghosttrace-s26u.onrender.com/api/health || true

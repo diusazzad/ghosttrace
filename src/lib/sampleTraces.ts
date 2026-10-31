@@ -59,7 +59,7 @@ export const SAMPLE_TRACES: TraceRun[] = [
     ],
     hypothesis: {
       title: "Unhandled Tool Error: call_stripe_settlement",
-      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      model: "Google Gemma 2 (Deterministic Grounding Mode)",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 3,
@@ -138,7 +138,7 @@ describe("PaymentWebhookAgent - Forensic Regression Safeguard", () => {
         status: "success",
         durationMs: 4,
         inputSummary:
-          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Fallback))",
+          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Mode))",
         outputSummary:
           "Formulated diagnosis: 'Unhandled Tool Error: call_stripe_settlement' (2 citations)",
       },
@@ -248,7 +248,7 @@ describe("PaymentWebhookAgent - Forensic Regression Safeguard", () => {
     ],
     hypothesis: {
       title: "Cyclic Tool Invalidation Loop via Unhandled 404",
-      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      model: "Google Gemma 2 (Deterministic Grounding Mode)",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 5,
@@ -321,7 +321,7 @@ describe("OrderFulfillmentAgent - Circuit Breaker Regression Blueprint", () => {
         status: "success",
         durationMs: 5,
         inputSummary:
-          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Fallback))",
+          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Mode))",
         outputSummary:
           "Formulated diagnosis: 'Cyclic Tool Invalidation Loop via Unhandled 404' (4 citations)",
       },
@@ -388,7 +388,7 @@ describe("OrderFulfillmentAgent - Circuit Breaker Regression Blueprint", () => {
     ],
     hypothesis: {
       title: "Schema Argument Hallucination on Tool Invocation",
-      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      model: "Google Gemma 2 (Deterministic Grounding Mode)",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 4,
@@ -455,7 +455,7 @@ describe("Tool Schema Strictness - apply_ast_patch Blueprint", () => {
         status: "success",
         durationMs: 4,
         inputSummary:
-          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Fallback))",
+          "Evaluated causal events via deterministic_rules (Google Gemma 2 (Deterministic Grounding Mode))",
         outputSummary:
           "Formulated diagnosis: 'Schema Argument Hallucination on Tool Invocation' (2 citations)",
       },
@@ -522,7 +522,7 @@ describe("Tool Schema Strictness - apply_ast_patch Blueprint", () => {
     ],
     hypothesis: {
       title: "Browserbase Headless Frame Detachment Failure",
-      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      model: "Google Gemma 2 (Deterministic Grounding Mode)",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 4,
@@ -662,7 +662,7 @@ describe("WebScraperNavAgent - Browserbase Frame Guard Safeguard", () => {
     ],
     hypothesis: {
       title: "Historical Cluster Recurrence: Upstream 500 Failure",
-      model: "Google Gemma 2 (Deterministic Grounding Fallback)",
+      model: "Google Gemma 2 (Deterministic Grounding Mode)",
       provider: "deterministic_rules",
       executionMode: "deterministic_fallback",
       latencyMs: 3,

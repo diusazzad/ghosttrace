@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { isMongoConfigured } from "@/lib/db/mongodb";
 import { isAuth0Configured } from "@/lib/auth/auth0";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const hasBackboard = Boolean(
     process.env.BACKBOARD_API_KEY &&
@@ -9,11 +11,46 @@ export async function GET() {
     process.env.BACKBOARD_API_KEY.trim().length > 0
   );
 
+  let aiReasonerStatus: "ready" | "degraded_fallback" = "degraded_fallback";
+  let aiReasonerProvider = "deterministic_rules";
+
+  // Perform a live network probe to Backboard API when credentials are present
+  if (hasBackboard) {
+    try {
+      const apiKey = process.env.BACKBOARD_API_KEY!.trim();
+      const baseURL = process.env.BACKBOARD_BASE_URL || "https://api.backboard.io/v1";
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1800);
+
+      const probeRes = await fetch(`${baseURL}/models`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+        signal: controller.signal,
+      }).catch(() => null);
+      clearTimeout(timeoutId);
+
+      if (probeRes && (probeRes.ok || probeRes.status === 200)) {
+        aiReasonerProvider = "backboard_remote";
+        aiReasonerStatus = "ready";
+      } else {
+        // Backboard remote endpoint unreachable or rejected key: fall back gracefully
+        aiReasonerProvider = "deterministic_rules";
+        aiReasonerStatus = "degraded_fallback";
+      }
+    } catch {
+      aiReasonerProvider = "deterministic_rules";
+      aiReasonerStatus = "degraded_fallback";
+    }
+  }
+
   const hasSentry = Boolean(
     process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN
   );
 
   const hasMongo = isMongoConfigured();
+  const auth0Connected = isAuth0Configured();
 
   return NextResponse.json({
     status: "healthy",
@@ -26,7 +63,8 @@ export async function GET() {
       forensicsEngine: "active_deterministic",
       aiReasoner: {
         model: process.env.GEMMA_MODEL_NAME || "google/gemma-2-9b-it",
-        provider: hasBackboard ? "backboard_remote" : "ollama_or_offline_fallback",
+        provider: aiReasonerProvider,
+        status: aiReasonerStatus,
         groundingEnforcement: "active",
       },
       workflowOrchestration: {
@@ -44,7 +82,8 @@ export async function GET() {
       },
       identity: {
         provider: "auth0",
-        status: isAuth0Configured() ? "configured" : "not_configured",
+        status: auth0Connected ? "configured" : "not_configured",
+        connectionState: auth0Connected ? "connected" : "disconnected",
       },
     },
   });
