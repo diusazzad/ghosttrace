@@ -86,19 +86,24 @@ export const WaterfallTimeline: React.FC<WaterfallTimelineProps> = ({
           </span>
         </div>
 
-        {/* Filter Pills */}
+        {/* Filter Pills with explicit acronym styling for LLM */}
         <div className="flex items-center gap-1 bg-[#0a0d13] p-1 rounded-lg border border-gray-800 text-xs shrink-0">
-          {["all", "llm", "tool", "error"].map((f) => (
+          {[
+            { id: "all", label: "All" },
+            { id: "llm", label: "LLM" },
+            { id: "tool", label: "Tools" },
+            { id: "error", label: "Errors" },
+          ].map(({ id, label }) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs capitalize transition ${
-                filter === f
-                  ? "bg-purple-600/30 text-purple-300 font-medium border border-purple-500/40"
+              key={id}
+              onClick={() => setFilter(id)}
+              className={`px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-medium transition ${
+                filter === id
+                  ? "bg-purple-600/30 text-purple-300 border border-purple-500/40"
                   : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              {f === "error" ? "Errors" : f}
+              {label}
             </button>
           ))}
         </div>

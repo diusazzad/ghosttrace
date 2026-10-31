@@ -53,9 +53,9 @@ export const Header: React.FC<HeaderProps> = ({
   isMobileMenuOpen = false,
 }) => {
   return (
-    <header className="h-16 border-b border-gray-800/80 bg-[#0d1117]/95 backdrop-blur px-3 sm:px-6 flex items-center justify-between sticky top-0 z-40 gap-2 sm:gap-4">
+    <header className="h-16 border-b border-gray-800/80 bg-[#0d1117]/95 backdrop-blur px-3 sm:px-6 flex items-center justify-between sticky top-0 z-40 gap-2 sm:gap-3 overflow-hidden">
       {/* Left: Mobile Toggle, Brand & Trace Selector */}
-      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0 max-w-xl">
+      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 shrink">
         {/* Mobile Navigation Drawer Toggle Button */}
         {onToggleMobileMenu && (
           <button
@@ -74,43 +74,45 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Search Bar (Hidden on phone, visible on tablet & desktop) */}
-        <div className="relative hidden md:flex flex-1 max-w-xs xl:max-w-md">
+        {/* Search Bar (Compact, visible on 2xl screens) */}
+        <div className="relative hidden 2xl:flex max-w-[200px]">
           <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-gray-400" />
           <input
             type="text"
             aria-label="Search events, tools, or errors"
-            placeholder="Search events, tools, or errors..."
+            placeholder="Search events..."
             className="w-full bg-[#161b22] border border-gray-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
           />
         </div>
 
-        {/* Trace Dropdown Selector */}
-        <select
-          value={activeTrace.id}
-          aria-label="Select agent trace for forensic analysis"
-          onChange={(e) => {
-            const selected = traces.find((t) => t.id === e.target.value);
-            if (selected) onSelectTrace(selected);
-          }}
-          className="bg-[#161b22] border border-gray-800 text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-purple-500 max-w-[130px] sm:max-w-[200px] md:max-w-xs truncate shrink-0"
-        >
-          {traces.map((trace) => (
-            <option key={trace.id} value={trace.id}>
-              {trace.agentName} ({trace.id})
-            </option>
-          ))}
-        </select>
+        {/* Trace Dropdown Selector with isolated container to prevent overlap */}
+        <div className="relative min-w-0 max-w-[170px] sm:max-w-[220px] shrink">
+          <select
+            value={activeTrace.id}
+            aria-label="Select agent trace for forensic analysis"
+            onChange={(e) => {
+              const selected = traces.find((t) => t.id === e.target.value);
+              if (selected) onSelectTrace(selected);
+            }}
+            className="w-full bg-[#161b22] border border-gray-800 text-gray-200 text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-purple-500 truncate"
+          >
+            {traces.map((trace) => (
+              <option key={trace.id} value={trace.id}>
+                {trace.agentName} ({trace.id})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Right: Actions, Sentry Agent Tracing & Auth0 Log In Cluster */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Upload Custom Trace */}
         <button
           onClick={onUploadClick}
           aria-label="Upload custom trace JSON"
           title="Upload custom trace JSON"
-          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/60 hover:bg-gray-800 text-gray-200 text-xs transition"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-gray-700 bg-gray-800/60 hover:bg-gray-800 text-gray-200 text-xs transition shrink-0"
         >
           <Upload className="h-3.5 w-3.5 shrink-0" />
           <span className="hidden xl:inline">Upload Trace</span>
@@ -123,7 +125,7 @@ export const Header: React.FC<HeaderProps> = ({
           disabled={isAnalyzing || isAnalyzingUltramarine}
           aria-label="Run Mastra and Gemma investigation"
           title="Run sequential forensic pipeline powered by Mastra Core and Google Gemma 2"
-          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-medium shadow-md shadow-purple-600/20 transition disabled:opacity-50"
+          className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-medium shadow-md shadow-purple-600/20 transition disabled:opacity-50 shrink-0"
         >
           <Cpu className={`h-3.5 w-3.5 shrink-0 ${isAnalyzing ? "animate-spin" : ""}`} />
           <span className="hidden xl:inline">
@@ -140,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
             onClick={onUltramarineClick}
             disabled={isAnalyzing || isAnalyzingUltramarine}
             aria-label="Analyze trace with Paper Instruments Ultramarine-1-Flash"
-            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-medium shadow-md shadow-cyan-600/20 transition disabled:opacity-50"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-medium shadow-md shadow-cyan-600/20 transition disabled:opacity-50 shrink-0"
             title="Analyze trace with Paper Instruments Ultramarine-1-Flash"
           >
             <Sparkles
