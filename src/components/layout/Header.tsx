@@ -7,6 +7,7 @@ import {
   Search,
   CheckCircle,
   Shield,
+  Sparkles,
 } from "lucide-react";
 import { TraceRun } from "@/types/trace";
 
@@ -27,6 +28,8 @@ interface HeaderProps {
   onUploadClick: () => void;
   onAnalyzeClick: () => void;
   isAnalyzing: boolean;
+  onUltramarineClick?: () => void;
+  isAnalyzingUltramarine?: boolean;
   authState?: AuthStateDTO;
 }
 
@@ -37,6 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   onUploadClick,
   onAnalyzeClick,
   isAnalyzing,
+  onUltramarineClick,
+  isAnalyzingUltramarine = false,
   authState,
 }) => {
   return (
@@ -79,18 +84,40 @@ export const Header: React.FC<HeaderProps> = ({
           <span>Upload Trace</span>
         </button>
 
+        {/* Mastra + Gemma Investigation */}
         <button
           onClick={onAnalyzeClick}
-          disabled={isAnalyzing}
+          disabled={isAnalyzing || isAnalyzingUltramarine}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-medium shadow-lg shadow-purple-600/20 transition disabled:opacity-50"
         >
           <Cpu className={`h-3.5 w-3.5 ${isAnalyzing ? "animate-spin" : ""}`} />
           <span>
             {isAnalyzing
               ? "Executing Mastra Workflow..."
-              : "Run Investigation (Mastra + Gemma)"}
+              : "Run (Mastra + Gemma)"}
           </span>
         </button>
+
+        {/* Ultramarine Investigation Button */}
+        {onUltramarineClick && (
+          <button
+            onClick={onUltramarineClick}
+            disabled={isAnalyzing || isAnalyzingUltramarine}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-medium shadow-lg shadow-cyan-600/20 transition disabled:opacity-50"
+            title="Analyze trace with Paper Instruments Ultramarine-1-Flash"
+          >
+            <Sparkles
+              className={`h-3.5 w-3.5 ${
+                isAnalyzingUltramarine ? "animate-spin" : ""
+              }`}
+            />
+            <span>
+              {isAnalyzingUltramarine
+                ? "Calling Ultramarine..."
+                : "Run with Ultramarine"}
+            </span>
+          </button>
+        )}
 
         <div className="h-4 w-px bg-gray-800" />
 

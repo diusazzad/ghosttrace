@@ -12,7 +12,7 @@ import { TraceUploadModal } from "@/components/forensics/TraceUploadModal";
 import { IncidentHistoryView } from "@/components/forensics/IncidentHistoryView";
 import { SAMPLE_TRACES } from "@/lib/sampleTraces";
 import { TraceRun } from "@/types/trace";
-import { Radio, Database, ShieldCheck, Terminal, Cpu } from "lucide-react";
+import { Radio, Database, ShieldCheck, Terminal, Cpu, AlertTriangle } from "lucide-react";
 
 export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
   const [traces, setTraces] = useState<TraceRun[]>(SAMPLE_TRACES);
@@ -21,16 +21,21 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [isAnalyzingUltramarine, setIsAnalyzingUltramarine] =
+    useState<boolean>(false);
+  const [ultramarineError, setUltramarineError] = useState<string | null>(null);
 
   const handleSelectTrace = (trace: TraceRun) => {
     setActiveTrace(trace);
     setSelectedEventId(null);
+    setUltramarineError(null);
   };
 
   const handleTraceLoaded = (newTrace: TraceRun) => {
     setTraces((prev) => [newTrace, ...prev]);
     setActiveTrace(newTrace);
     setSelectedEventId(null);
+    setUltramarineError(null);
   };
 
   const handleReAnalyze = async () => {
@@ -89,6 +94,46 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
     }
   };
 
+  const handleRunUltramarine = async () => {
+    try {
+      setIsAnalyzingUltramarine(true);
+      setUltramarineError(null);
+
+      const res = await fetch("/api/traces/workflow", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trace: activeTrace, provider: "ultramarine" }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.error || "Failed to execute Ultramarine forensic analysis"
+        );
+      }
+
+      if (data.ultramarine) {
+        const updatedTrace: TraceRun = {
+          ...activeTrace,
+          ultramarineInvestigation: data.ultramarine,
+        };
+        setActiveTrace(updatedTrace);
+        setTraces((prev) =>
+          prev.map((t) => (t.id === updatedTrace.id ? updatedTrace : t))
+        );
+      }
+    } catch (err: unknown) {
+      console.error("Ultramarine execution error:", err);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Failed to analyze trace with Ultramarine";
+      setUltramarineError(msg);
+    } finally {
+      setIsAnalyzingUltramarine(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-[#0a0d13] text-gray-100 font-sans antialiased selection:bg-purple-600/30 selection:text-purple-200">
       {/* Left Sidebar */}
@@ -108,11 +153,31 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
           onUploadClick={() => setIsUploadModalOpen(true)}
           onAnalyzeClick={handleReAnalyze}
           isAnalyzing={isAnalyzing}
+          onUltramarineClick={handleRunUltramarine}
+          isAnalyzingUltramarine={isAnalyzingUltramarine}
           authState={authState}
         />
 
         {/* Dynamic Body Content by Tab */}
         <main className="flex-1 p-6 flex flex-col gap-6 max-w-7xl w-full mx-auto">
+          {/* Ultramarine Error Notification */}
+          {ultramarineError && (
+            <div className="p-3.5 rounded-lg bg-amber-950/30 border border-amber-500/40 text-amber-200 text-xs flex items-center justify-between shadow-lg">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>
+                  <strong>Ultramarine Notice:</strong> {ultramarineError}
+                </span>
+              </div>
+              <button
+                onClick={() => setUltramarineError(null)}
+                className="text-gray-400 hover:text-white text-xs px-2 py-0.5 rounded hover:bg-white/10 transition"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* Main Trace View */}
           {(currentTab === "trace" || currentTab === "timeline") && (
             <>
@@ -157,11 +222,12 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
               <div className="p-6 rounded-xl border border-gray-800 bg-[#0d1117]">
                 <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                   <Cpu className="h-5 w-5 text-blue-400" />
-                  <span>Google Gemma 2 Root Cause Forensics</span>
+                  <span>Google Gemma 2 &amp; Ultramarine Forensics</span>
                 </h2>
                 <p className="text-sm text-gray-400 leading-relaxed">
-                  GhostTrace pairs open-weight Gemma 2 with strict deterministic grounding. Every failure explanation
-                  must link directly to verified trace event IDs and timestamps to prevent reasoning hallucinations.
+                  GhostTrace pairs open-weight Gemma 2 and high-reasoning Ultramarine-1-Flash
+                  with strict deterministic grounding. Every failure explanation must link directly
+                  to verified trace event IDs and timestamps to prevent reasoning hallucinations.
                 </p>
               </div>
 
@@ -178,7 +244,7 @@ export function ForensicDashboard({ authState }: { authState?: AuthStateDTO }) {
               />
 
               <div className="p-4 rounded-xl border border-gray-800 bg-[#0d1117] flex items-center justify-between text-xs text-gray-400">
-                <span>Model provider: Google Gemma 2 (9B / 27B) via Backboard / Local Ollama</span>
+                <span>Model providers: Google Gemma 2 &amp; Paper Instruments Ultramarine</span>
                 <span className="font-mono text-emerald-400">Status: Verified Grounded</span>
               </div>
             </div>
