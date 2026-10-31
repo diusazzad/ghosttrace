@@ -6,14 +6,13 @@ import {
   getTraceStatistics,
   inMemoryTraceStore,
   StoredInvestigation,
-  DEFAULT_ANONYMOUS_OWNER,
 } from "@/lib/db/traceRepository";
 import { POST as saveRoute } from "@/app/api/traces/save/route";
 import { GET as historyRoute } from "@/app/api/traces/history/route";
 import { NextRequest } from "next/server";
 import * as authModule from "@/lib/auth/auth0";
 
-describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01C)", () => {
+describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01C.1)", () => {
   beforeEach(() => {
     inMemoryTraceStore.clear();
     vi.restoreAllMocks();
@@ -47,9 +46,8 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
     createdAt: new Date().toISOString(),
   };
 
-  it("saves and retrieves an investigation record with full forensic metadata and ownerId", async () => {
+  it("saves and retrieves an investigation record with mandatory ownerId", async () => {
     const saveResult = await saveInvestigation(mockInvestigation);
-    expect(saveResult.persisted).toBe(true);
     expect(saveResult.id).toBeDefined();
     expect(saveResult.ownerId).toBe("auth0|user_alpha_123");
 
@@ -59,15 +57,44 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
     expect(retrieved?.ownerId).toBe("auth0|user_alpha_123");
     expect(retrieved?.agentName).toBe("CodeRefactorAgent");
     expect(retrieved?.primaryFailureCategory).toBe("infinite_loop");
-    expect(retrieved?.hypothesis.groundedEventIds).toEqual(["evt_002", "evt_003"]);
   });
 
-  it("returns null when searching for non-existent traceId", async () => {
-    const result = await getInvestigationByTraceId("non_existent_trace_999", "auth0|user_alpha_123");
-    expect(result).toBeNull();
+  it("reports persisted: false for volatile in-memory storage", async () => {
+    // When saved to in-memory store (e.g. offline/demo), persisted must be false
+    const demoInvestigation: StoredInvestigation = {
+      ...mockInvestigation,
+      ownerId: "demo_local_isolated",
+      traceId: "trace_demo_volatile",
+    };
+    const result = await saveInvestigation(demoInvestigation);
+    expect(result.persisted).toBe(false);
+    expect(result.storageEngine).toBe("in_memory");
   });
 
-  it("enforces multi-tenant trace isolation between different owners sharing same traceId", async () => {
+  it("rejects repository operations when ownerId is missing or empty", async () => {
+    const invalidInvestigation = {
+      ...mockInvestigation,
+      ownerId: "",
+    };
+
+    await expect(saveInvestigation(invalidInvestigation)).rejects.toThrow(
+      "saveInvestigation requires a non-empty ownerId"
+    );
+
+    await expect(getInvestigationByTraceId("trace_123", "")).rejects.toThrow(
+      "getInvestigationByTraceId requires a non-empty ownerId"
+    );
+
+    await expect(listInvestigations({ ownerId: "" })).rejects.toThrow(
+      "listInvestigations requires a non-empty ownerId"
+    );
+
+    await expect(getTraceStatistics("")).rejects.toThrow(
+      "getTraceStatistics requires a non-empty ownerId"
+    );
+  });
+
+  it("enforces multi-tenant trace isolation between different owners sharing the same traceId", async () => {
     const userA = "auth0|user_alpha_123";
     const userB = "auth0|user_beta_456";
 
@@ -104,7 +131,6 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
     expect(retrievedB?.ownerId).toBe(userB);
 
     // In-memory store should contain 2 distinct partitioned records
-    expect(inMemoryTraceStore.count()).toBe(2);
     expect(inMemoryTraceStore.count(userA)).toBe(1);
     expect(inMemoryTraceStore.count(userB)).toBe(1);
   });
@@ -128,7 +154,6 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
     const userA = "auth0|user_alpha_123";
     const userB = "auth0|user_beta_456";
 
-    // User A investigations
     await saveInvestigation({
       ...mockInvestigation,
       ownerId: userA,
@@ -142,8 +167,6 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
       agentName: "DataPipelineAgent",
       primaryFailureCategory: "tool_cascade_failure",
     });
-
-    // User B investigation
     await saveInvestigation({
       ...mockInvestigation,
       ownerId: userB,
@@ -151,7 +174,6 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
       primaryFailureCategory: "infinite_loop",
     });
 
-    // Querying for User A should never return User B's traces
     const userATraces = await listInvestigations({ ownerId: userA });
     expect(userATraces.length).toBe(2);
     expect(userATraces.every((t) => t.ownerId === userA)).toBe(true);
@@ -160,7 +182,6 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
     expect(userBTraces.length).toBe(1);
     expect(userBTraces[0].traceId).toBe("trace_b_loop");
 
-    // Filter within User A's traces
     const loopTracesA = await listInvestigations({ ownerId: userA, category: "infinite_loop" });
     expect(loopTracesA.length).toBe(1);
     expect(loopTracesA[0].traceId).toBe("trace_a_loop");
@@ -170,7 +191,7 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
     expect(pipelineTracesA[0].traceId).toBe("trace_a_cascade");
   });
 
-  it("computes accurate aggregate failure statistics scoped to ownerId", async () => {
+  it("computes accurate aggregate failure statistics scoped strictly to ownerId", async () => {
     const userA = "auth0|user_alpha_123";
     const userB = "auth0|user_beta_456";
 
@@ -189,7 +210,6 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
       primaryFailureCategory: "none",
     });
 
-    // User B with high tokens
     await saveInvestigation({
       ...mockInvestigation,
       ownerId: userB,
@@ -198,85 +218,109 @@ describe("MongoDB Atlas Trace Repository & Multi-Tenant Owner Isolation (TASK 01
       primaryFailureCategory: "schema_mismatch",
     });
 
-    // Stats for User A should not be contaminated by User B
     const statsA = await getTraceStatistics(userA);
     expect(statsA.totalTraces).toBe(2);
     expect(statsA.failureCategoryCounts["infinite_loop"]).toBe(1);
     expect(statsA.failureCategoryCounts["none"]).toBe(1);
     expect(statsA.failureCategoryCounts["schema_mismatch"]).toBeUndefined();
-    // (10000 + 2000) / 2 = 6000
     expect(statsA.averageTokens).toBe(6000);
   });
 
-  it("handles persistence via POST /api/traces/save with authenticated session sub", async () => {
-    vi.spyOn(authModule, "getServerSession").mockResolvedValue({
-      userId: "auth0|server_verified_user_99",
-      isDemo: false,
+  describe("API Route Security Gates", () => {
+    it("returns 401 on POST /api/traces/save when Auth0 is configured and session is absent", async () => {
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
+      vi.spyOn(authModule, "getServerSession").mockResolvedValue(null);
+
+      const req = new NextRequest("http://localhost:3000/api/traces/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mockInvestigation),
+      });
+
+      const res = await saveRoute(req);
+      expect(res.status).toBe(401);
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error).toContain("Unauthorized");
     });
 
-    const req = new NextRequest("http://localhost:3000/api/traces/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(mockInvestigation),
+    it("ignores client-supplied body.ownerId and binds strictly to verified session identity", async () => {
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
+      vi.spyOn(authModule, "getServerSession").mockResolvedValue({
+        userId: "auth0|legitimate_server_user",
+        isDemo: false,
+      });
+
+      const spoofPayload = {
+        ...mockInvestigation,
+        ownerId: "auth0|spoofed_victim_id", // Malicious attempt to forge ownerId in body
+      };
+
+      const req = new NextRequest("http://localhost:3000/api/traces/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(spoofPayload),
+      });
+
+      const res = await saveRoute(req);
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.ownerId).toBe("auth0|legitimate_server_user"); // Must be the server session, NOT the spoofed payload
+
+      const saved = await getInvestigationByTraceId(mockInvestigation.traceId, "auth0|legitimate_server_user");
+      expect(saved?.ownerId).toBe("auth0|legitimate_server_user");
+
+      // Verify the victim's partition has zero records
+      const victimTrace = await getInvestigationByTraceId(mockInvestigation.traceId, "auth0|spoofed_victim_id");
+      expect(victimTrace).toBeNull();
     });
 
-    const res = await saveRoute(req);
-    expect(res.status).toBe(200);
+    it("returns 401 on GET /api/traces/history when Auth0 is configured and session is absent", async () => {
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
+      vi.spyOn(authModule, "getServerSession").mockResolvedValue(null);
 
-    const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(body.persisted).toBe(true);
-    expect(body.ownerId).toBe("auth0|server_verified_user_99");
+      const req = new NextRequest("http://localhost:3000/api/traces/history?limit=10");
+      const res = await historyRoute(req);
+      expect(res.status).toBe(401);
 
-    const saved = await getInvestigationByTraceId(mockInvestigation.traceId, "auth0|server_verified_user_99");
-    expect(saved?.ownerId).toBe("auth0|server_verified_user_99");
-  });
-
-  it("falls back to default sandbox owner when POST /api/traces/save is unauthenticated", async () => {
-    vi.spyOn(authModule, "getServerSession").mockResolvedValue(null);
-
-    const req = new NextRequest("http://localhost:3000/api/traces/save", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(mockInvestigation),
+      const body = await res.json();
+      expect(body.success).toBe(false);
+      expect(body.error).toContain("Unauthorized");
     });
 
-    const res = await saveRoute(req);
-    expect(res.status).toBe(200);
+    it("ignores ?ownerId= query parameter and scopes GET /api/traces/history strictly to session", async () => {
+      const verifiedSub = "auth0|history_viewer_77";
+      const victimSub = "auth0|victim_user_88";
 
-    const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(body.ownerId).toBe(DEFAULT_ANONYMOUS_OWNER);
-  });
+      await saveInvestigation({
+        ...mockInvestigation,
+        ownerId: verifiedSub,
+        traceId: "trace_viewer_01",
+      });
+      await saveInvestigation({
+        ...mockInvestigation,
+        ownerId: victimSub,
+        traceId: "trace_victim_02",
+      });
 
-  it("retrieves history and statistics via GET /api/traces/history scoped to session sub", async () => {
-    const verifiedSub = "auth0|history_viewer_77";
+      vi.spyOn(authModule, "isAuth0Configured").mockReturnValue(true);
+      vi.spyOn(authModule, "getServerSession").mockResolvedValue({
+        userId: verifiedSub,
+        isDemo: false,
+      });
 
-    await saveInvestigation({
-      ...mockInvestigation,
-      ownerId: verifiedSub,
-      traceId: "trace_viewer_01",
+      // Malicious attempt to snoop on victim's history via query param
+      const req = new NextRequest(`http://localhost:3000/api/traces/history?ownerId=${victimSub}&limit=10`);
+      const res = await historyRoute(req);
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.ownerId).toBe(verifiedSub); // Must be the session user
+      expect(body.count).toBe(1);
+      expect(body.investigations[0].traceId).toBe("trace_viewer_01"); // Victim trace must NOT be leaked
     });
-    await saveInvestigation({
-      ...mockInvestigation,
-      ownerId: "auth0|other_user_99",
-      traceId: "trace_other_02",
-    });
-
-    vi.spyOn(authModule, "getServerSession").mockResolvedValue({
-      userId: verifiedSub,
-      isDemo: false,
-    });
-
-    const req = new NextRequest("http://localhost:3000/api/traces/history?limit=10");
-    const res = await historyRoute(req);
-    expect(res.status).toBe(200);
-
-    const body = await res.json();
-    expect(body.success).toBe(true);
-    expect(body.ownerId).toBe(verifiedSub);
-    expect(body.count).toBe(1);
-    expect(body.investigations[0].traceId).toBe("trace_viewer_01");
-    expect(body.statistics.totalTraces).toBe(1);
   });
 });

@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveInvestigation, StoredInvestigation, DEFAULT_ANONYMOUS_OWNER } from "@/lib/db/traceRepository";
-import { getServerSession } from "@/lib/auth/auth0";
+import { saveInvestigation, StoredInvestigation } from "@/lib/db/traceRepository";
+import { getServerSession, isAuth0Configured } from "@/lib/auth/auth0";
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(req);
-    // Bind investigation to verified Auth0 session user (session.userId) or fallback to sandbox
-    const ownerId = session?.userId || DEFAULT_ANONYMOUS_OWNER;
+
+    // Requirement 1 & 2: Return 401 when Auth0 is configured and request lacks a verified session
+    if (isAuth0Configured() && (!session || !session.userId)) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized: authenticated session required to save investigations" },
+        { status: 401 }
+      );
+    }
+
+    // Requirement 3: Never accept client-supplied ownerId. Always bind strictly to session identity
+    const ownerId = session?.userId || "demo_local_isolated";
 
     const body = await req.json();
 
@@ -17,6 +26,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Ignore any client-supplied body.ownerId
     const investigation: StoredInvestigation = {
       ownerId,
       traceId: body.traceId,
